@@ -1,0 +1,19 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# IDE
+.idea/
+.vscode/
+
+# Local runtime config
+config.json
+
+# Runtime data — created on first run, never part of the repo
+*.db
+*.db-wal
+*.db-shm
+*.log
+*.log.prev*
+reports/
