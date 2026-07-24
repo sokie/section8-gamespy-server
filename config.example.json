@@ -12,7 +12,7 @@
   },
   "_games_comment": "Per-game GameSpy identifiers keyed by lowercase wire gamename. Override or add titles here. secret_key is informational for the current Auth/GPCM/Sake path (accepted as-is); it matters only for a future ServerBrowser/enctypex path.",
   "games": {
-    "tg09pc":     { "secret_key": "OGmgyP", "gameid": 3160 },
-    "section8pc": { "secret_key": "2UMehS", "gameid": null }
+    "tg09pc":     { "secret_key": "test", "gameid": 3160 },
+    "section8pc": { "secret_key": "test", "gameid": null }
   }
 }
