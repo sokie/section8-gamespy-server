@@ -95,10 +95,25 @@ interchangeable - the table is just the game's convention.
 
 ## Dedicated Ranked Server Mode
 
-Section 8: Prejudice **ranked** matches cannot be hosted from the in-game "quick match" - the game only
-awards ranked progression on a genuine **dedicated server**. This server supports that end to end: a
+In Section 8: Prejudice, **whether a match can be ranked - and how you host it - depends on the game
+mode**. The three competitive modes require a dedicated server; the co-op Swarm mode can be ranked from
+an ordinary in-game listen server; private matches are never ranked:
+
+| Mode | Ranked? | How it is hosted |
+|------|---------|------------------|
+| Conquest | Yes | Dedicated ranked server |
+| Assault | Yes | Dedicated ranked server |
+| Skirmish | Yes | Dedicated ranked server |
+| Swarm (co-op) | Yes, after the game's later updates | In-game listen server is enough, if difficulty is Medium or higher and at least 2 humans are present |
+| Private matches | No | Player-hosted, never ranked |
+
+Either way the ranked progression flows through the **same GameSpy back end this server provides** -
+login, certificate, and ATLAS match reports. The difference is only the host: Swarm reports straight
+from the in-game listen server, while the competitive modes must be hosted by a dedicated server.
+
+For those competitive modes, this server carries the full dedicated-server handshake end to end: a
 Prejudice dedicated server logs in through GameSpy, is issued a login certificate, passes the ATLAS
-"trusted server" check, and publishes its live status - so it appears in the server browser with the
+"trusted server" check, and publishes its live status - so it shows up in the server browser with the
 **ranked (ladder) icon** and its match reports count toward the leaderboard.
 
 ### Launching a ranked dedicated server
