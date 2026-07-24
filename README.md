@@ -118,14 +118,14 @@ Prejudice dedicated server logs in through GameSpy, is issued a login certificat
 
 ### Launching a ranked dedicated server
 
-The dedicated server is headless, so you need one copy of the game running it and another to play.
-Start this backend first, then launch:
+The dedicated server is headless, and can be run from the main game launcher..
+Start this backend first, then launch the game:
 
 ```
 S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?adminpassword=123?maxplayers=40?bots=Yes?FF=part?difficulty=3?goalscore=2000?timelimit=15?mapcycle=TER01_Base-LargeA+ARC02_Base-LargeA+DES01_Base-LargeA+LAV02_Base-LargeA -login=123 -password=123 -unattended
 ```
 
-- **`-login` / `-password`** are the server's own GameSpy account credentials. They go straight to
+- **`-login` / `-password`** are the server's **own** GameSpy account credentials. They go straight to
   GameSpy for authentication, which **this server handles**: the account is created on first use
   (`\newuser\`), logged in (`\login\`), and issued a login certificate (AuthService `LoginUniqueNick`),
   exactly like a player. No account needs to be pre-registered.
