@@ -96,6 +96,8 @@ class SakeService:
         handler = getattr(self, f"_op_{op}", None)
         if handler is None:
             # Unknown op: a bare Success keeps the SDK from tearing down; refine as ops surface.
+            log.log(f"    [sake] *** UNHANDLED OP *** {op or '(unknown)'} "
+                    f"(returning bare Success; see full request above)")
             return _envelope(f'<{op}Response xmlns="{SAKE_NS}"><{op}Result>Success</{op}Result></{op}Response>')
         return handler(root)
 
@@ -116,10 +118,10 @@ class SakeService:
         owner_ids = [int(t) for t in (_local_text(n) for n in root.iter() if _local(n.tag) == "int") if t]
         owner_ids = owner_ids or None
 
-        record_ids = self._store.search(table, sort_field, descending, offset, max_rows, owner_ids)
-        if record_ids:
-            rows_xml = "".join(self._row_xml(table, rid, fields) for rid in record_ids)
-            n = f"{len(record_ids)} record(s)"
+        results = self._store.search(table, sort_field, descending, offset, max_rows, owner_ids)
+        if results:
+            rows_xml = "".join(self._row_xml(table, own, rid, fields) for (own, rid) in results)
+            n = f"{len(results)} record(s)"
         else:
             # No stored record yet (brand-new player): return one synthetic row with every requested
             # field present and zeroed in its correct Sake type. This is the "0 stats" a fresh account
@@ -140,7 +142,7 @@ class SakeService:
         owner = int(_find_text(root, "ownerid", "0") or 0)
         fields = [_local_text(n) for n in root.iter() if _local(n.tag) == "string"]
         rid = self._store.record_id_for_owner(table, owner)
-        rows_xml = self._row_xml(table, rid, fields) if rid is not None else ""
+        rows_xml = self._row_xml(table, owner, rid, fields) if rid is not None else ""
         values = f"<values>{rows_xml}</values>" if rows_xml else "<values/>"
         return _envelope(
             f'<GetMyRecordsResponse xmlns="{SAKE_NS}">'
@@ -175,7 +177,7 @@ class SakeService:
         rid = self._store.record_id_for_owner(table, owner)
         if rid is None:
             rid = self._store.create_record(table, owner)
-        self._apply_writes(table, rid, root)
+        self._apply_writes(table, owner, rid, root)
         log.log(f"    [sake] CreateRecord table={table} owner={owner} -> recordid={rid}")
         return _envelope(
             f'<CreateRecordResponse xmlns="{SAKE_NS}">'
@@ -186,7 +188,18 @@ class SakeService:
     def _op_UpdateRecord(self, root) -> str:
         table = _find_text(root, "tableid", "PlayerStats_v6")
         rid = int(_find_text(root, "recordid", "0") or 0)
-        self._apply_writes(table, rid, root)
+        # A dedicated server publishing its own status (ServerStatusTG09_v6) goes SearchForRecords ->
+        # UpdateRecord on the synthetic recordid we hand back, never CreateRecord. Records are keyed by
+        # owner, so (this server, recordid) is its own row - two servers each keep their own recordid 1.
+        # Bind it to the owner (from the login ticket) so a later search by ownerid returns the real status.
+        owner = profileid_from_ticket(_find_text(root, "loginTicket"))
+        if not owner and rid:
+            # No login ticket on this update: fall back to the recordid's owner when it is unambiguous,
+            # so an owner-keyed write still lands on the right row instead of a phantom owner 0.
+            owner = self._store.owner_for_record(table, rid) or 0
+        if rid and owner:
+            self._store.ensure_record(table, owner, rid)
+        self._apply_writes(table, owner, rid, root)
         log.log(f"    [sake] UpdateRecord table={table} recordid={rid}")
         return _envelope(
             f'<UpdateRecordResponse xmlns="{SAKE_NS}">'
@@ -196,7 +209,7 @@ class SakeService:
 
     # --- helpers -----------------------------------------------------------------------------------
 
-    def _apply_writes(self, table, record_id, root):
+    def _apply_writes(self, table, owner, record_id, root):
         """Parse the RecordField list of an UpdateRecord/CreateRecord and persist each typed value,
         learning the Sake type from the client's own wire representation."""
         writes = []
@@ -213,7 +226,7 @@ class SakeService:
             if name and value_type:
                 writes.append((name, value_type, value))
         if writes:
-            self._store.set_fields(table, record_id, writes)
+            self._store.set_fields(table, owner, record_id, writes)
             # Log every field the game writes (name=value:type) so a capture shows exactly what the
             # client persists - this is how we learn whether the game writes stats/XP/level directly.
             preview = ", ".join(f"{n}={v}:{t.replace('Value', '')}" for n, t, v in writes)
@@ -234,11 +247,10 @@ class SakeService:
             cells.append(_record_value_xml(vtype, value))
         return f"<ArrayOfRecordValue>{''.join(cells)}</ArrayOfRecordValue>"
 
-    def _row_xml(self, table, record_id, fields) -> str:
+    def _row_xml(self, table, owner, record_id, fields) -> str:
         if record_id is None:
             return ""
-        stored = self._store.get_fields(table, record_id)
-        owner = self._store.owner_of(table, record_id)
+        stored = self._store.get_fields(table, owner, record_id)
         cells = []
         for field in fields:
             if field in stored:

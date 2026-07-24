@@ -10,10 +10,12 @@ __pycache__/
 # Local runtime config
 config.json
 
-# Runtime data — created on first run, never part of the repo
+# Runtime data - created on first run, never part of the repo
 *.db
 *.db-wal
 *.db-shm
+*.db.bak*
 *.log
 *.log.prev*
+backend_stdout.txt
 reports/

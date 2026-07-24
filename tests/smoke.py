@@ -93,7 +93,7 @@ check("CreateRecord returned a recordid", rid is not None and rid.isdigit())
 
 update_body = (
     f'<ns1:UpdateRecord xmlns:ns1="http://gamespy.net/sake"><ns1:tableid>PlayerStats_v6</ns1:tableid>'
-    f'<ns1:recordid>{rid}</ns1:recordid><ns1:values>'
+    f'<ns1:loginTicket>{lt}</ns1:loginTicket><ns1:recordid>{rid}</ns1:recordid><ns1:values>'
     f'<ns1:RecordField><ns1:name>Ranked_Kills</ns1:name><ns1:value><ns1:intValue><ns1:value>99</ns1:value>'
     f'</ns1:intValue></ns1:value></ns1:RecordField></ns1:values></ns1:UpdateRecord>')
 sake.handle("", update_body)

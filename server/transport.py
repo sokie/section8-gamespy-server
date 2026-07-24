@@ -41,7 +41,8 @@ class HttpRouter:
             return self._competition.handle(head, body)
         if "/SakeStorageServer/" in head or "/sake" in head.lower():
             return self._sake.handle(soap_action, body)
-        log.log(f"    [http] unrouted request: {request_line}")
+        log.log(f"    [http] *** UNHANDLED PATH *** {request_line} SOAPAction={soap_action!r} "
+                f"(no service matched; full request logged above)")
         return ('<?xml version="1.0" encoding="utf-8"?>'
                 '<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">'
                 '<soap:Body/></soap:Envelope>')

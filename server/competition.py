@@ -78,6 +78,11 @@ class CompetitionService:
         log.log(f"    [comp] {method or '(unknown)'}")
         handler = getattr(self, f"_op_{method}", None)
         if handler is None:
+            # A method we do not implement (e.g. an AtlasDataServices/GameConfig call). Flag it loudly
+            # and echo a generic <result>0</result> so the game keeps going and the whole session is
+            # captured, rather than tearing down at the first unknown call.
+            log.log(f"    [comp] *** UNHANDLED METHOD *** {method or '(unknown)'} "
+                    f"(returning generic OK; see full request above)")
             return self._result(method or "Unknown")
         return handler(raw)
 
@@ -188,12 +193,12 @@ class CompetitionService:
             raw = [(statmap.field_for_keyid(k), "intValue", str(v))
                    for k, v in pr.values.items() if k != statmap.XP_DELTA_KEYID]
             prog = statmap.progression_for_xp(new_xp)
-            self._store.set_fields("PlayerStats_v6", record_id,
+            self._store.set_fields("PlayerStats_v6", profileid, record_id,
                                    raw + [(n, "intValue", str(v)) for n, v in prog.items()])
             # The game reads each player's level from S8Level_v6 too, so mirror the derived level there.
             lrid = (self._store.record_id_for_owner("S8Level_v6", profileid)
                     or self._store.create_record("S8Level_v6", profileid))
-            self._store.set_fields("S8Level_v6", lrid,
+            self._store.set_fields("S8Level_v6", profileid, lrid,
                                    [("Ranked_Level", "intValue", str(prog["Ranked_Level"]))])
             log.log(f"    [comp] pid={profileid} -> recordid={record_id}: +{xp_delta} XP (keyid 11) "
                     f"=> total xp={new_xp} level={prog['Ranked_Level']} (+{len(raw)} raw keys)")

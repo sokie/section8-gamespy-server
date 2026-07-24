@@ -49,6 +49,11 @@ single SQLite file.
 - [x] **Level / rank derivation** and mirroring into the `S8Level_v6` leaderboard table.
 - [x] **Shared leaderboards** - point several PCs at one server and they read/write the same DB, so a
       sort across all owners ranks everyone who has ever connected.
+- [x] **Dedicated ranked server mode** - a Prejudice dedicated server logs in through GameSpy, is issued
+      a certificate, passes the ATLAS trusted-server check, and publishes its live `ServerStatusTG09_v6`
+      record, so it appears in the browser with the ranked (ladder) icon and its reports count. Records
+      are keyed per owner, so many dedicated servers (and players) coexist without recordid collisions.
+      See [Dedicated Ranked Server Mode](#dedicated-ranked-server-mode).
 - [x] **MOTD** service.
 
 ### Missing / Planned
@@ -87,6 +92,52 @@ AuthService and Competition are HTTPS in the shipped game; the XLLN **quick-patc
 to `http://` and neuters the certificate signature check so this server can serve them as plain HTTP.
 Sake is plain HTTP already. The HTTP listeners route purely by URL path, so the HTTP ports are
 interchangeable - the table is just the game's convention.
+
+## Dedicated Ranked Server Mode
+
+Section 8: Prejudice **ranked** matches cannot be hosted from the in-game "quick match" - the game only
+awards ranked progression on a genuine **dedicated server**. This server supports that end to end: a
+Prejudice dedicated server logs in through GameSpy, is issued a login certificate, passes the ATLAS
+"trusted server" check, and publishes its live status - so it appears in the server browser with the
+**ranked (ladder) icon** and its match reports count toward the leaderboard.
+
+### Launching a ranked dedicated server
+
+The dedicated server is headless, so you need one copy of the game running it and another to play.
+Start this backend first, then launch:
+
+```
+S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?adminpassword=123?maxplayers=40?bots=Yes?FF=part?difficulty=3?goalscore=2000?timelimit=15?mapcycle=TER01_Base-LargeA+ARC02_Base-LargeA+DES01_Base-LargeA+LAV02_Base-LargeA -login=123 -password=123 -unattended
+```
+
+- **`-login` / `-password`** are the server's own GameSpy account credentials. They go straight to
+  GameSpy for authentication, which **this server handles**: the account is created on first use
+  (`\newuser\`), logged in (`\login\`), and issued a login certificate (AuthService `LoginUniqueNick`),
+  exactly like a player. No account needs to be pre-registered.
+- **`?ranked=1`** declares the match ranked. It is server-authoritative - a joining client cannot force
+  or fake it. The engine appends `?Dedicated` itself for `server` mode, so you do not add it.
+- With those, the server passes the ATLAS trusted-server check (`CheckProfileOnBanList`) and publishes a
+  `ServerStatusTG09_v6` record with `Status_Ranked=1`, and shows up in the browser with the ladder icon.
+
+### Ranked requirements (enforced by the game)
+
+The **game itself** refuses to run as ranked unless the match settings sit inside the official ranked
+bounds. These are the game's rules, not this server's - but the server will silently fall back to an
+unranked match if you step outside them:
+
+- **`timelimit` must be between 15 and 35.**
+- **`goalscore` (score limit) must be between 500 and 2000.**
+
+Outside either range the server still starts, but **not as ranked** (no ladder icon, no stat tracking).
+
+### Minimum players
+
+Ranked stat tracking needs at least **2 human players**. With fewer, the server reports:
+
+> minimum players not met (2). Ranked stats tracking temporarily disabled
+
+and holds ranked reporting until a second human joins. Bots do not count toward the minimum, so a
+bots-only server never stores ranked stats.
 
 ## Quick Start
 
