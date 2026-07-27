@@ -111,7 +111,9 @@ class CompetitionService:
     def _op_CreateSession(self, raw: bytes) -> str:
         self._csid += 1
         # The session creator (the host) is participant 0 of this match.
-        self._sessions[str(self._csid)] = [int(self._profile_id(raw) or 0)]
+        host_pid = int(self._profile_id(raw) or 0)
+        self._sessions[str(self._csid)] = [host_pid]
+        log.log(f"    [comp] CreateSession csid={self._csid} host_pid={host_pid}")
         return self._result("CreateSession", f"<csid>{self._csid}</csid><ccid>{self._profile_id(raw)}</ccid>")
 
     def _op_CreateMatchlessSession(self, raw: bytes) -> str:
@@ -128,7 +130,10 @@ class CompetitionService:
             participants.append(pid)
         # SetReportIntention only fires for a match the game has decided IS ranked, so its arrival is the
         # definitive "this match is really ranked" signal (unlike CheckProfileOnBanList, a login ban-check).
-        log.log("    [comp] *** RANKED CONFIRMED: SetReportIntention -- a ranked match is starting ***")
+        # authoritative=1 marks the host/dedicated-server report that carries every player's stats.
+        auth = _field(raw, "authoritative")
+        log.log(f"    [comp] *** RANKED CONFIRMED: SetReportIntention csid={csid} pid={pid} ccid={ccid} "
+                f"authoritative={auth} participants(join order)={participants} ***")
         return self._result("SetReportIntention", f"<csid>{csid}</csid><ccid>{ccid}</ccid>")
 
     # --- the actual stats submission ---------------------------------------------------------------
@@ -175,13 +180,24 @@ class CompetitionService:
         if not players:
             log.log("    [comp] report carried no stat blocks (close/empty report)")
             return
+        # A dedicated server submits every player's stats but plays no round, so it occupies no stat block.
+        # It is identifiable by self-publishing a ServerStatusTG09_v6 record; drop such server owners from
+        # the join order so report blocks line up with the actual players. A listen host does play and holds
+        # no such record, so it stays in position and keeps its block.
+        attribution = [p for p in participants
+                       if not self._store.record_id_for_owner("ServerStatusTG09_v6", p)] or participants
+        log.log(f"    [comp] blocks={len(players)} blobids={[hex(p.profileid) for p in players]} "
+                f"participants(join order)={participants} attribution(players)={attribution}")
+        for idx, pr in enumerate(players):
+            log.log(f"    [comp] block {idx}: blobid=0x{pr.profileid:08x} ft={pr.filetime} "
+                    f"keys={dict(sorted(pr.values.items()))}")
         for idx, pr in enumerate(players):
             if not pr.values:
                 continue
-            if idx >= len(participants) or not participants[idx]:
-                log.log(f"    [comp] report block {idx} has no known participant profileid; skipped")
+            if idx >= len(attribution) or not attribution[idx]:
+                log.log(f"    [comp] report block {idx} has no known player profileid; skipped")
                 continue
-            profileid = participants[idx]
+            profileid = attribution[idx]
             xp_delta = int(pr.values.get(statmap.XP_DELTA_KEYID, 0))
             record_id, new_xp, applied = self._store.add_xp_delta(
                 "PlayerStats_v6", profileid, xp_delta, pr.filetime)

@@ -134,6 +134,20 @@ S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?adminpassword=123
 - With those, the server passes the ATLAS trusted-server check (`CheckProfileOnBanList`) and publishes a
   `ServerStatusTG09_v6` record with `Status_Ranked=1`, and shows up in the browser with the ladder icon.
 
+### Running the server and client from one folder
+
+The dedicated server and your game client are the same `S9-Win32-F.exe`, so by default both load
+XLiveLessNess's `xlln-config-1.ini` - and the server's `-login` name gets written back into that shared
+config as `xlive_username_p1`. Your client then logs in as the server's account, and its ranked stats
+read empty. Give the dedicated server its own XLLN instance so the two identities stay separate:
+
+- Add **`-xlln_local_instance_id=2`** to the server's launch line. It then loads its own
+  `xlln-config-2.ini` on a separate network port and debug log, instead of the client's `xlln-config-1.ini`.
+- In `xlln-config-2.ini`, set `xlln_network_instance_port = 39002` (instance 1 uses 39001, so the two do
+  not clash) and set `xlive_username_p1` to the same name you pass to the server's `-login` (e.g. `123`).
+
+The client keeps instance 1 and its own username; the server keeps instance 2 and the `-login` identity.
+
 ### Ranked requirements (enforced by the game)
 
 The **game itself** refuses to run as ranked unless the match settings sit inside the official ranked
