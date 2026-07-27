@@ -14,6 +14,7 @@ S9-Win32-F.exe's parse tables (result/csid/ccid element names).
 """
 import gzip
 import os
+import struct
 from datetime import datetime
 
 from . import log, screport, statmap
@@ -96,6 +97,16 @@ class CompetitionService:
         # profileid lives inside the certificate element of the request.
         return _field(raw, "profileid") or _field(raw, "userid") or "0"
 
+    def _mint_ccid(self, pid: int) -> str:
+        # SC connection GUID for a participant. The report blob carries NO real profileid
+        # (scReportSetPlayerData's profileId is unused on the wire); the only per-player identity is this
+        # connection GUID, which the SC backend (us) assigns in the SetReportIntention/CreateSession
+        # response and the host round-trips VERBATIM into each report roster slot (verified in-game). We
+        # encode the real profileid in the GUID's leading dword, so on SubmitReport each roster slot's
+        # leading dword IS that player's profileid - deterministic attribution, independent of the blob's
+        # block order and player count. The rest is a fixed marker so the value is recognisable in a capture.
+        return f"{pid & 0xFFFFFFFF:08X}-BEEF-CAFE-0000-000000000000"
+
     # --- session setup: every method just has to succeed so the client keeps going ------------------
 
     def _op_CheckProfileOnBanList(self, raw: bytes) -> str:
@@ -114,7 +125,7 @@ class CompetitionService:
         host_pid = int(self._profile_id(raw) or 0)
         self._sessions[str(self._csid)] = [host_pid]
         log.log(f"    [comp] CreateSession csid={self._csid} host_pid={host_pid}")
-        return self._result("CreateSession", f"<csid>{self._csid}</csid><ccid>{self._profile_id(raw)}</ccid>")
+        return self._result("CreateSession", f"<csid>{self._csid}</csid><ccid>{self._mint_ccid(host_pid)}</ccid>")
 
     def _op_CreateMatchlessSession(self, raw: bytes) -> str:
         self._csid += 1
@@ -123,7 +134,7 @@ class CompetitionService:
     def _op_SetReportIntention(self, raw: bytes) -> str:
         csid = _field(raw, "csid")
         pid = int(self._profile_id(raw) or 0)
-        ccid = _field(raw, "ccid") or str(pid)
+        ccid = self._mint_ccid(pid)
         # Each participant announces its intention before the match; record join order for attribution.
         participants = self._sessions.setdefault(csid, [])
         if pid and pid not in participants:
@@ -188,16 +199,32 @@ class CompetitionService:
                        if not self._store.record_id_for_owner("ServerStatusTG09_v6", p)] or participants
         log.log(f"    [comp] blocks={len(players)} blobids={[hex(p.profileid) for p in players]} "
                 f"participants(join order)={participants} attribution(players)={attribution}")
+        # Full roster connection GUIDs (16B each). If the host echoed our minted ccid these carry the
+        # profileid in the leading dword + the BEEF-CAFE marker (roster -> profileid is then deterministic);
+        # otherwise a local 0x10000000+slot handle, meaning the host ignores the backend ccid.
+        if len(blob) >= 0x44:
+            for i in range(struct.unpack_from(">H", blob, 0x20)[0]):
+                rec = blob[0x44 + i * 20: 0x44 + i * 20 + 20]
+                log.log(f"    [comp] roster[{i}] connGUID={rec[:16].hex(' ')} "
+                        f"team={struct.unpack_from('>I', rec, 16)[0]}")
         for idx, pr in enumerate(players):
             log.log(f"    [comp] block {idx}: blobid=0x{pr.profileid:08x} ft={pr.filetime} "
                     f"keys={dict(sorted(pr.values.items()))}")
+        # Preferred attribution: the roster connection-GUID leading dword (screport reads it as pr.profileid)
+        # IS the real profileid, because we mint each ccid to encode it and the host round-trips it into the
+        # roster. Order-independent and correct for any player count. Fall back to positional join order only
+        # for a slot whose handle is not a recognised participant (an older client, or a raw local handle).
+        participant_set = {p for p in participants if p}
         for idx, pr in enumerate(players):
             if not pr.values:
                 continue
-            if idx >= len(attribution) or not attribution[idx]:
-                log.log(f"    [comp] report block {idx} has no known player profileid; skipped")
+            if pr.profileid in participant_set:
+                profileid, how = pr.profileid, "ccid"
+            elif idx < len(attribution) and attribution[idx]:
+                profileid, how = attribution[idx], "positional"
+            else:
+                log.log(f"    [comp] report block {idx} has no resolvable profileid; skipped")
                 continue
-            profileid = attribution[idx]
             xp_delta = int(pr.values.get(statmap.XP_DELTA_KEYID, 0))
             record_id, new_xp, applied = self._store.add_xp_delta(
                 "PlayerStats_v6", profileid, xp_delta, pr.filetime)
@@ -216,8 +243,8 @@ class CompetitionService:
                     or self._store.create_record("S8Level_v6", profileid))
             self._store.set_fields("S8Level_v6", profileid, lrid,
                                    [("Ranked_Level", "intValue", str(prog["Ranked_Level"]))])
-            log.log(f"    [comp] pid={profileid} -> recordid={record_id}: +{xp_delta} XP (keyid 11) "
-                    f"=> total xp={new_xp} level={prog['Ranked_Level']} (+{len(raw)} raw keys)")
+            log.log(f"    [comp] pid={profileid} (via {how}) -> recordid={record_id}: +{xp_delta} XP "
+                    f"(keyid 11) => total xp={new_xp} level={prog['Ranked_Level']} (+{len(raw)} raw keys)")
 
     def _save_report(self, gameid: str, csid: str, owner: str, report: bytes, raw: bytes = b"") -> None:
         try:
