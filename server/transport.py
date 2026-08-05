@@ -16,14 +16,28 @@ GPCM_KEEPALIVE_INTERVAL = 5.0
 _GPCM_KEEPALIVE_FRAME = b"\\ka\\\\final\\"
 
 
+class RawResponse:
+    """A non-SOAP body (the news file), which must not be served as text/xml.
+
+    extra_headers carries the Sake file-server headers the GameSpy SDK requires; without them it
+    discards the body and reports the read as failed.
+    """
+
+    def __init__(self, body: bytes, content_type: str = "text/plain", extra_headers: dict | None = None):
+        self.body = body
+        self.content_type = content_type
+        self.extra_headers = extra_headers or {}
+
+
 class HttpRouter:
-    def __init__(self, auth, competition, sake, motd):
+    def __init__(self, auth, competition, sake, motd, news):
         self._auth = auth
         self._competition = competition
         self._sake = sake
         self._motd = motd
+        self._news = news
 
-    def route(self, head: str, body: str) -> str:
+    def route(self, head: str, body: str):
         request_line = head.split("\r\n", 1)[0]
         soap_action = ""
         for line in head.split("\r\n"):
@@ -31,6 +45,12 @@ class HttpRouter:
                 soap_action = line.split(":", 1)[1].strip()
         if "/motd/" in head.lower():
             return self._motd.handle(head, body)
+        # SakeFileServer is a plain GET for a file, not SOAP. It must be matched before the Sake
+        # StorageServer check below, whose "/sake" substring test would otherwise swallow it and try to
+        # parse an empty GET body as an envelope.
+        if "/SakeFileServer/" in head or "download.aspx" in head.lower():
+            body_bytes, headers = self._news.handle_download(head)
+            return RawResponse(body_bytes, "application/octet-stream", headers)
         if "/AuthService/" in head:
             return self._auth.handle(head, body)
         # Section 8's ATLAS/competition SDK posts to /AtlasDataServices/GameConfig.asmx, not the
@@ -175,7 +195,16 @@ class Server:
             log.log(f"    [{port}] <-- HTTP REQUEST:\n{head}\n\n[SC binary report body {len(body)} bytes -> reports/]")
         else:
             log.log(f"    [{port}] <-- HTTP REQUEST:\n{head}\n\n{body_text}")
-        resp_body = self._http.route(head, body_text)
+        routed = self._http.route(head, body_text)
+        if isinstance(routed, RawResponse):
+            extra = "".join(f"{k}: {v}\r\n" for k, v in routed.extra_headers.items())
+            resp_head = (f"HTTP/1.0 200 OK\r\nContent-Type: {routed.content_type}\r\n"
+                         f"Content-Length: {len(routed.body)}\r\n{extra}Connection: close\r\n\r\n")
+            conn.sendall(resp_head.encode("latin-1", "replace") + routed.body)
+            log.log(f"    [{port}] --> HTTP 200 ({len(routed.body)}B {routed.content_type})\n"
+                    f"{routed.body.decode('latin-1', 'replace')}")
+            return
+        resp_body = routed
         resp = ("HTTP/1.0 200 OK\r\nContent-Type: text/xml; charset=utf-8\r\n"
                 f"Content-Length: {len(resp_body)}\r\nConnection: close\r\n\r\n{resp_body}")
         conn.sendall(resp.encode("latin-1", "replace"))

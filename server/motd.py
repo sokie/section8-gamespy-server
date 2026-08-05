@@ -1,15 +1,16 @@
-"""GameSpy MOTD ("message of the day") - the welcome banner Section 8 shows on the online menu.
+"""GameSpy MOTD/vercheck endpoints - answered so the requests do not fail.
 
 The game GETs http://motd.gamespy.com/motd/{motd,vercheck}.asp?userid=..&gamename=.. through the GameSpy
-ghttp layer - a plain HTTP GET to a full URL, unlike the SG-tunnelled SOAP services. Redirecting those two
-URLs to this backend (patch the host in the exe to 127.0.0.1:<httpport>) lets us answer them. This is
+ghttp layer - a plain HTTP GET to a full URL, unlike the SG-tunnelled SOAP services. Answering them is
 purely cosmetic and non-blocking: it does NOT gate sign-in (that is the separate Sake NewsStats read).
 
-The reply is a GameSpy INI blob the game parses (S9-Win32-F.exe FUN_015a0080): it finds the `[MOTD]`
-line, then the `MOTD_<lang>` key (lang comes from Engine.Engine/Language, "INT" for this install), splits
-on `=` and displays the value. An optional per-line version filter (`min-max:` style, tokens - : ,) is
-skipped when absent, so a bare `MOTD_INT=<text>` always shows. Returning the raw text with no `[MOTD]`
-header is why the banner previously fell back to "...not available".
+NOTE: this is *not* the source of the welcome banner on the online menu, despite the name. That comes
+from the `[MOTD]` section of the news file (see server/news.py). Proven by controlled test: changing the
+text served here to a marker string left the banner unchanged, while the banner's content was traceable
+character-for-character to a line in the news file. Point banner edits at news/section8_news.txt.
+
+The reply keeps the GameSpy INI shape (`[MOTD]` header plus a `MOTD_INT=` line) because that is what the
+endpoint is documented to return, and an empty vercheck body reads as "no update required".
 """
 from . import log
 

@@ -18,4 +18,5 @@ config.json
 *.log
 *.log.prev*
 backend_stdout.txt
+backend_stderr.txt
 reports/

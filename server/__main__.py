@@ -7,6 +7,7 @@ from .competition import CompetitionService
 from .config import Config
 from .gpcm import GpcmService
 from .motd import MotdService
+from .news import NewsService
 from .persistence import Store
 from .sake import SakeService
 from .transport import HttpRouter, Server
@@ -20,8 +21,9 @@ def main(argv):
 
     store = Store(config.db_path)
     gpcm = GpcmService(store, config.server_challenge)
-    router = HttpRouter(AuthService(store), CompetitionService(store), SakeService(store),
-                        MotdService(config.motd_message))
+    news = NewsService()
+    router = HttpRouter(AuthService(store), CompetitionService(store), SakeService(store, news),
+                        MotdService(config.motd_message), news)
     Server(config, gpcm, router).serve_forever()
 
 

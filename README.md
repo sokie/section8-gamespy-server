@@ -54,7 +54,12 @@ single SQLite file.
       record, so it appears in the browser with the ranked (ladder) icon and its reports count. Records
       are keyed per owner, so many dedicated servers (and players) coexist without recordid collisions.
       See [Dedicated Ranked Server Mode](#dedicated-ranked-server-mode).
-- [x] **MOTD** service.
+- [x] **News delivery** - the `NewsStats_v6` index plus the `SakeFileServer` download, served UTF-16LE.
+      This is what unlocks the **Assault** and **Skirmish** game modes (entitlement-gated behind an
+      unlock class with no local criteria) and what drives the in-game **MOTD** banner, with no binary
+      patching. See [News](#news-unlocking-assault--skirmish-and-the-motd).
+- [x] **MOTD** service - answers `motd.asp`/`vercheck` so the requests do not fail (the on-screen
+      banner itself comes from the news file, not from here).
 
 ### Missing / Planned
 
@@ -133,6 +138,175 @@ S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?adminpassword=123
   or fake it. The engine appends `?Dedicated` itself for `server` mode, so you do not add it.
 - With those, the server passes the ATLAS trusted-server check (`CheckProfileOnBanList`) and publishes a
   `ServerStatusTG09_v6` record with `Status_Ranked=1`, and shows up in the browser with the ladder icon.
+
+### Selecting the game mode
+
+The mode is chosen by the **`?game=<Package.Class>` URL option**. There is no separate mode switch, and
+the class name does *not* match the name the game shows for the mode:
+
+| Mode (as the game names it) | `?game=` value | `GameModeID` |
+|---|---|---|
+| Conquest | `S9Game.S9GameInfoConquest` | 1 |
+| Swarm | `S9Game.S9GameInfoSwarm` | 2 |
+| Skirmish | `S9Game.S9GameInfoArcade` | 3 |
+| Assault | `S9Game.S9GameInfoAssault` | 4 |
+
+`S9GameInfoArcade` really is Skirmish - "Arcade" is the internal name; the class itself carries
+`DisplayName="SKIRMISH"`. And there is **no** `S9GameInfo_Assault` / `S9GameInfo_Conquest`: the
+underscored spelling that circulates in community guides is not a class name, and passing it does not
+error - the server just starts in Conquest.
+
+An Assault server, otherwise identical to the command above:
+
+```
+S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?game=S9Game.S9GameInfoAssault?adminpassword=123?maxplayers=40?bots=Yes?FF=part?difficulty=3?goalscore=2000?timelimit=15?mapcycle=TER01_Base-LargeA+ARC02_Base-LargeA+DES01_Base-LargeA+LAV02_Base-LargeA -login=123 -password=123 -unattended
+```
+
+The chosen mode's `GameModeID` is what the server publishes as `ServerStatusTG09_v6.Status_GameMode`,
+so you can confirm which mode actually took effect from this server's own database - no need to read
+anything in-game:
+
+```bash
+python -c "import sqlite3;print(list(sqlite3.connect('section8.db').execute(\"select owner_id,value from fields where table_id='ServerStatusTG09_v6' and name='Status_GameMode'\")))"
+```
+
+### Maps and variants
+
+A map URL is `<MapName>-<Variant>`, e.g. `TER01_Base-LargeA` is the map `TER01_Base` in its `LargeA`
+variant. The engine splits the two itself and re-appends `?Variant=LargeA` to the options internally,
+so you never write `?Variant=` by hand. **The variant decides which modes are legal on that map**, and
+`?game=` then picks one of them:
+
+| Variant suffix | Modes it allows | Mode used if `?game=` is omitted |
+|---|---|---|
+| `-LargeA`, `-MediumA`, `-SmallA`, `-SmallB` | Conquest, Skirmish, Assault | Conquest |
+| `-SwarmA` | Swarm | Swarm |
+| `-Campaign` | Campaign | Campaign |
+
+So Assault and Skirmish run on **the same maps as Conquest**. There is no `-AssaultA` or `-SkirmishA`
+variant - the guidance you may find that says to look for a map file with "Assault" in its name is
+wrong, no such file ships in any version or DLC.
+
+**A mismatched `?game=` is never an error.** The engine loads the class you named, checks it against
+the variant's supported list, and on a miss silently falls back to the first mode that variant
+supports. That is exactly why Swarm needs no `?game=` at all: `-SwarmA` supports precisely one mode, so
+the fallback *is* Swarm. The same rule cuts the other way - `?game=S9Game.S9GameInfoSwarm` on a
+`-LargeA` map does not fail, it quietly gives you Conquest. If a server comes up in the wrong mode,
+suspect a class-name typo or a variant/mode mismatch, and check `Status_GameMode` rather than waiting
+for an error that will never appear.
+
+Swarm is also the only mode with a feature gate: it declares `FeaturesRequired="SwarmGameMode"`, which
+the game's connection-status manager must have enabled, or Swarm is dropped from the legal list even on
+a `-SwarmA` map. The three competitive modes have no such requirement.
+
+The eight multiplayer maps, each shipping all five variants above:
+
+| Map | Name in game | Ships with |
+|---|---|---|
+| `ARC02_Base` | Whiteout | base game |
+| `DES01_Base` | Eden | base game |
+| `LAV02_Base` | Prometheus | base game |
+| `TER01_Base` | Zephyr | base game |
+| `ARC01_Base` | Sky Dock | DLC2 |
+| `LAV01_Base` | Abaddon | DLC2 |
+| `DES02_Base` | Desolation | DLC3 |
+| `TER02_Base` | Overseer | DLC3 |
+
+`?mapcycle=` entries must carry the variant suffix too (`TER01_Base-LargeA`, not `TER01_Base`); a bare
+map name is rejected at startup with `Map <name> does not exist!` and dropped from the rotation. The
+mode is **not** repeated per entry - map rotation travels relative to the current URL, so a single
+`?game=` at launch carries across the whole cycle.
+
+### News: unlocking Assault / Skirmish, and the MOTD
+
+Two of the four modes are not merely selected by `?game=` - they are **entitlement-gated**. Assault and
+Skirmish each carry an unlock class (`S9UnlockAssault` / `S9UnlockArcade`) with no local criteria at all,
+so nothing a player or server does can satisfy them. TimeGate flipped them on server-side for everyone at
+once when the community passed the ten-million-kill milestone. Conquest and Swarm carry no unlock, which
+is exactly why only those two ever worked against a private backend.
+
+Until the gate is opened, a dedicated server hosting Assault or Skirmish loads the map, resolves the
+right game type, and then exits during startup:
+
+```
+Log: Game class is 'S9GameInfoAssault'
+ScriptLog: GameTypeDescriptor:  S9GameTypeDescriptorAssault
+Log: appRequestExit(0)
+Error: Error, This game mode is not available.
+```
+
+This server opens it the way the game intends, through **news** - no binary patching:
+
+```
+Sake SearchForRecords on NewsStats_v6   -> News_Settings_FileID + recordid
+GET /SakeFileServer/download.aspx?fileid=<id>   -> news/section8_news.txt
+```
+
+`recordid` must be non-zero **and must change whenever the content changes**: the game compares it
+against its cached news version and skips the download when they match. It is derived from a CRC of the
+file, so editing the file re-triggers the apply by itself. The file is re-read per request, so no server
+restart is needed to iterate on it.
+
+**The file is served UTF-16LE with a BOM.** The game decodes it with its own reader, not a BOM-sniffing
+helper; served as ASCII every section header silently fails to match and the whole file no-ops with
+nothing logged anywhere - indistinguishable from a syntax error. Author it as UTF-8; `server/news.py`
+converts on the way out.
+
+#### `[Settings]` - the mode unlocks
+
+```
+<GameInfoFilter>-<Class>.<Property>=<Value>
+```
+
+```
+[Settings]
+TGGameInfo-S9GameInfoAssault.Unlock=None
+TGGameInfo-S9GameInfoArcade.Unlock=None
+```
+
+Three rules, each of which fails silently or confusingly if broken:
+
+- **`GameInfoFilter` must match the GameInfo that is live when news is applied.** News is applied during
+  login, while the entry map's `S9GameInfoEntryEmpty` is current - and that derives from
+  `TGGameInfoEntry`, *not* `S9GameInfo`. Filtering on `S9GameInfo` matches nothing and the line is
+  skipped with no error and no effect. `TGGameInfo` is their common ancestor.
+- **`Class` must be a bare class name.** Package-qualifying it (`S9Game.S9GameInfoAssault`) adds a dot
+  that breaks the class/property split and rejects the whole section.
+- **A malformed line aborts the rest of the section**, so later lines are never read. Change one thing
+  per line, and put the most important line first.
+
+`;` starts a comment *in this section only*. An optional version gate is supported:
+`<Filter>:<min>,<max>-<Class>.<Property>=<Value>`.
+
+Diagnostics appear in the game's own log (`My Games\Section 8 Prejudice - PC\S9Game\Logs\Launch.log`,
+launch with `-FORCELOGFLUSH`):
+
+| Log line | Meaning |
+|---|---|
+| `Improper News Settings file on line N` | structural - the line does not split into the four fields |
+| `Invalid setting filter class X` | filter token did not resolve to a class |
+| `Unrecognized class X` / `Unrecognized property X` | class or property token wrong |
+| *(silence)* | line parsed and applied, or filter did not match the live GameInfo |
+
+#### `[MOTD]` - the online-menu banner
+
+```
+[MOTD]
+MOTD_INT=Welcome to the server.
+```
+
+The key is `MOTD_` plus the game's language ext, with `MOTD_INT` as the fallback (`TRIAL_<lang>` in
+trial mode); everything right of the first `=` is displayed.
+
+**This section is not the same parser as `[Settings]`, and the difference bites.** It has no comment
+handling and no section terminator: every line from the header onward is scanned, the first line
+*containing* the key wins, and everything right of its first `=` becomes the banner. A comment that
+merely mentions the key is therefore displayed instead of the real line - a comment reading
+`;...with MOTD_INT as the fallback; value is split on '='.` renders a banner of `'.`. Keep this block to
+a single line and never mention the key after the header.
+
+Note that `motd.asp` (served by `server/motd.py`) is **not** the source of this banner despite its name;
+it is answered only so the request does not fail.
 
 ### Running the server and client from one folder
 

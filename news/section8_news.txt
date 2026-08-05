@@ -1,0 +1,28 @@
+[Settings]
+;Section 8: Prejudice news payload. Served UTF-16LE by server/news.py (the game cannot read it as ASCII).
+;
+;Line format:  <GameInfoFilter>-<Class>.<Property>=<Value>
+;  GameInfoFilter  class the *currently active* GameInfo must derive from, or the line is skipped
+;                  silently. News is applied during login while the entry map's S9GameInfoEntryEmpty
+;                  is live, and that does NOT derive from S9GameInfo - use TGGameInfo, their common
+;                  ancestor, or the line does nothing at all.
+;  Class           bare class name. Package-qualifying it (S9Game.S9GameInfoAssault) breaks the
+;                  class/property split on '.' and the whole section is rejected.
+;  ';'             comment, honoured in this section only. A malformed line aborts the rest of the
+;                  section, so keep one change per line.
+;  Optional version gate: <Filter>:<min>,<max>-<Class>.<Property>=<Value>
+;
+;Assault and Skirmish are gated behind an unlock class with no local criteria - originally flipped
+;server-side for everyone when the community hit the 10-million-kill milestone. Clearing the gate here
+;restores them; without it a dedicated server hosting either mode exits during startup with
+;"This game mode is not available."
+TGGameInfo-S9GameInfoAssault.Unlock=None
+TGGameInfo-S9GameInfoArcade.Unlock=None
+
+;In-game message of the day follows. WARNING: the section below is scanned line by line with NO
+;comment handling and NO section terminator - the first line containing the key wins, and everything
+;right of its first '=' becomes the banner text. So no line after the header may mention that key,
+;not even in a comment, or the comment itself is displayed. Keep this block to exactly one line.
+;Key is the literal below; the game tries the current language ext first and falls back to INT.
+[MOTD]
+MOTD_INT=Welcome to the Section 8 Prejudice revival server. Assault and Skirmish are unlocked.

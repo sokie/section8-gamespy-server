@@ -71,8 +71,9 @@ def _record_value_xml(value_type: str, value: str) -> str:
 
 
 class SakeService:
-    def __init__(self, store):
+    def __init__(self, store, news=None):
         self._store = store
+        self._news = news
 
     def handle(self, soap_action: str, body: str) -> str:
         try:
@@ -117,6 +118,18 @@ class SakeService:
             descending = (len(bits) < 2) or bits[1].lower() != "asc"
         owner_ids = [int(t) for t in (_local_text(n) for n in root.iter() if _local(n.tag) == "int") if t]
         owner_ids = owner_ids or None
+
+        # NewsStats is a system-owned table: the game only reads it, and never writes back. It is an
+        # index pointing at the real payload, which is fetched separately from SakeFileServer.
+        if self._news is not None and table.lower().startswith("newsstats"):
+            rows_xml = self._news_row_xml(fields)
+            log.log(f"    [sake] SearchForRecords table={table} -> news row "
+                    f"(Settings_FileID={self._news.file_id()} recordid={self._news.version()})")
+            return _envelope(
+                f'<SearchForRecordsResponse xmlns="{SAKE_NS}">'
+                f'<SearchForRecordsResult>Success</SearchForRecordsResult><values>{rows_xml}</values>'
+                f'</SearchForRecordsResponse>'
+            )
 
         results = self._store.search(table, sort_field, descending, offset, max_rows, owner_ids)
         if results:
@@ -231,6 +244,24 @@ class SakeService:
             # client persists - this is how we learn whether the game writes stats/XP/level directly.
             preview = ", ".join(f"{n}={v}:{t.replace('Value', '')}" for n, t, v in writes)
             log.log(f"    [sake] WROTE table={table} recordid={record_id} {len(writes)} field(s): {preview}")
+
+    def _news_row_xml(self, fields) -> str:
+        """The single NewsStats row. Settings_FileID names the file to fetch; recordid is the news
+        version, which the game compares against its cached NewsVersion and skips the fetch when equal -
+        so it must be non-zero and must change whenever the news content does."""
+        cells = []
+        for field in fields:
+            key = field.lower()
+            # The XLAST column is Settings_FileID; Prejudice asks for it as News_Settings_FileID.
+            if key in ("news_settings_fileid", "settings_fileid"):
+                vtype, value = "intValue", str(self._news.file_id())
+            elif key in ("recordid", "row"):
+                vtype, value = "intValue", str(self._news.version())
+            else:
+                vtype = _infer_type(field)
+                value = _default_value(vtype)
+            cells.append(_record_value_xml(vtype, value))
+        return f"<ArrayOfRecordValue>{''.join(cells)}</ArrayOfRecordValue>"
 
     def _synthetic_row_xml(self, fields, owner) -> str:
         """A single row for a player with no stored record: every requested field present, zeroed in
