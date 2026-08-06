@@ -63,9 +63,6 @@ single SQLite file.
 
 ### Missing / Planned
 
-- [ ] **GameSpy ServerBrowser / matchmaking** - Section 8 multiplayer discovery runs over XLLN's own
-      XNet/LiveOverLan layer, not GameSpy QR2/NAT-negotiation, so this is not required to play; a
-      GameSpy server browser is simply not implemented.
 - [ ] **Exact XP->level curve** - the game computes the *displayed* level from `Ranked_xp` itself via a
       custom table; our stored `Ranked_Level` is a leaderboard-sort proxy tuned to the observed
       thresholds (213 XP -> L5, 250 -> L6) and drifts a few levels at the high end.
@@ -73,11 +70,6 @@ single SQLite file.
       1428, the client-only 221, ...) are stored verbatim as `Ranked_wkey_<id>` for later analysis.
 - [ ] **Career-cumulative stats not in the report** - e.g. TimePlayed; the report carries per-round
       scoring stats only, so any career total the report never sends would need a server-side derivation.
-- [ ] **Robust attribution for 3+ humans** - report blocks are attributed to participants by join order,
-      which is correct for 2-player co-op but could mislabel if a *middle* player drops in a 3+ human
-      match.
-- [ ] **A signed certificate** - the cert is an unsigned placeholder; it only works because the
-      quick-patch neuters the client's signature check. A properly signed cert would remove that patch.
 - [ ] **Section 8 (base game)** support - present as a config stub only.
 
 ## How it fits together
