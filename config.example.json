@@ -1,0 +1,18 @@
+{
+  "_comment": "Copy to config.json and edit. bind_address 0.0.0.0 hosts the whole LAN so several PCs share one leaderboard; 127.0.0.1 is solo.",
+  "bind_address": "127.0.0.1",
+  "db_path": "section8.db",
+  "log_path": "section8_gamespy.log",
+  "ports": {
+    "8901": "gpcm",
+    "8902": "gpcm",
+    "8903": "http",
+    "8904": "http",
+    "8905": "http"
+  },
+  "_games_comment": "Per-game GameSpy identifiers, keyed by the lowercase wire gamename. Override or add titles here. secret_key and gameid are not read by the current GPCM/Auth/Sake path; they matter to a future ServerBrowser or enctypex path.",
+  "games": {
+    "tg09pc":     { "secret_key": "test", "gameid": 3160 },
+    "section8pc": { "secret_key": "test", "gameid": null }
+  }
+}

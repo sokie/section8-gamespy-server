@@ -1,0 +1,52 @@
+[project]
+name = "section8-gamespy-server"
+version = "0.1.0"
+description = "Section 8 GameSpy / ATLAS backend server emulator"
+requires-python = ">=3.10"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "SIM",    # flake8-simplify
+]
+ignore = [
+    "E501",   # line too long (handled by the formatter)
+    "E722",   # bare except (several are deliberate, to keep a listener alive)
+    "SIM105", # contextlib.suppress suggestion (prefer explicit try/except)
+    "SIM108", # use ternary operator instead of if-else
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Both bootstrap sys.path before importing `server`, so their imports cannot sit at the top.
+"scripts/set_test_xp.py" = ["E402"]
+"tests/smoke.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["server"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["server"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

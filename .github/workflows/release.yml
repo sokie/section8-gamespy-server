@@ -1,0 +1,122 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            artifact_name: section8-server-linux-amd64
+            executable_name: section8-server
+            archive_ext: tar.gz
+          - os: windows-latest
+            artifact_name: section8-server-windows-amd64
+            executable_name: section8-server.exe
+            archive_ext: zip
+          - os: macos-15-intel
+            artifact_name: section8-server-macos-intel
+            executable_name: section8-server
+            archive_ext: tar.gz
+          - os: macos-15
+            artifact_name: section8-server-macos-arm64
+            executable_name: section8-server
+            archive_ext: tar.gz
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Build executable
+        run: pyinstaller section8-server.spec
+
+      - name: Get version from tag
+        id: get_version
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      # news/section8_news.txt ships next to the executable, not inside it. It is what unlocks Assault
+      # and Skirmish and sets the MOTD, so it has to stay editable without a rebuild.
+      - name: Prepare release directory (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p release/news
+          cp dist/${{ matrix.executable_name }} release/
+          cp config.example.json release/
+          cp news/section8_news.txt release/news/
+          chmod +x release/${{ matrix.executable_name }}
+
+      - name: Prepare release directory (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release\news
+          Copy-Item "dist\${{ matrix.executable_name }}" -Destination "release\"
+          Copy-Item "config.example.json" -Destination "release\"
+          Copy-Item "news\section8_news.txt" -Destination "release\news\"
+
+      - name: Create archive (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd release
+          tar -czvf ../${{ matrix.artifact_name }}-${{ steps.get_version.outputs.VERSION }}.${{ matrix.archive_ext }} *
+
+      - name: Create archive (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          cd release
+          Compress-Archive -Path * -DestinationPath "..\${{ matrix.artifact_name }}-${{ steps.get_version.outputs.VERSION }}.${{ matrix.archive_ext }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}-${{ steps.get_version.outputs.VERSION }}.${{ matrix.archive_ext }}
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: List artifacts
+        run: find artifacts -type f
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.get_version.outputs.VERSION }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            artifacts/**/*

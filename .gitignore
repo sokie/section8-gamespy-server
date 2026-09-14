@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Build and lint artefacts
+build/
+dist/
+*.spec
+!section8-server.spec
+.ruff_cache/
+.mypy_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# IDE
+.idea/
+.vscode/
+
+# Local runtime config
+config.json
+
+# Runtime data - created on first run, never part of the repo
+*.db
+*.db-wal
+*.db-shm
+*.db.bak*
+*.log
+*.log.prev*
+backend_stdout.txt
+backend_stderr.txt
+reports/
