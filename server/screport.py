@@ -1,121 +1,128 @@
-"""Decoder for Section 8's GameSpy SC (ATLAS) match-report blob.
-
-This is the only place ranked stats enter the backend. The game reads PlayerStats_v6 but never writes
-it, so the host's report is the source of truth for every player's cumulative stats.
-
-Wire format (big-endian), reverse-engineered from S9-Win32-F.exe's SC serializer:
-
-  header  0x00  u32 = 2
-          0x04  u32 = 6            (SC protocol version)
-          0x08  16-byte per-report GUID
-          0x18  u32 = 0
-          0x1c  u32 = 1
-          0x20  u16 nplayers
-          0x24  u32 total key count
-          0x3c  u32 stat-stream byte length
-  players 0x44  nplayers x 20 bytes: { profileid u32, 0, 8-byte session handle, 0 }
-  stream        a flat run of typed key/value entries, grouped into one block per player (in the
-                same order as the player records). Each entry is:
-                    keyid  u16
-                    type   u16   ( 0=int32(4B)  4=float32(4B)  5=int64(8B)  3=string )
-                    value  by type
-                A type-5 int64 holding a Windows FILETIME is a per-datum record time. These vary
-                within one player's block, so they do not mark where a block ends.
-"""
-
 import struct
 
-_TW = {0x0000: 4, 0x0004: 4, 0x0005: 8}  # value width by wire type
-_FT_LO, _FT_HI = 0x01D0000000000000, 0x01E0000000000000  # plausible 2020s FILETIME window
+HEADER_SIZE = 0x44
+KEY_INT32, KEY_INT16, KEY_BYTE, KEY_STRING, KEY_FLOAT, KEY_INT64 = range(6)
 
 
-def _u16(b, o):
-    return struct.unpack_from(">H", b, o)[0]
+class ReportError(ValueError):
+    pass
 
 
-def _u32(b, o):
-    return struct.unpack_from(">I", b, o)[0]
+class PlayerBlock:
+    __slots__ = ("index", "connection_id", "team", "result", "keys")
+
+    def __init__(self, index, connection_id, team, result):
+        self.index = index
+        self.connection_id: bytes = connection_id
+        self.team = team
+        self.result = result
+        self.keys: dict[int, tuple[int, object]] = {}
+
+    def connection_dword(self) -> int:
+        return int(struct.unpack_from(">I", self.connection_id, 0)[0])
 
 
-def _i32(b, o):
-    return struct.unpack_from(">i", b, o)[0]
+class Report:
+    __slots__ = ("protocol", "version", "checksum", "status", "flags", "players", "game_keys", "team_keys")
+
+    def __init__(self):
+        self.protocol = 0
+        self.version = 0
+        self.checksum = b""
+        self.status = 0
+        self.flags = 0
+        self.players: list[PlayerBlock] = []
+        self.game_keys: dict = {}
+        self.team_keys: list[dict] = []
 
 
-def _i64(b, o):
-    return struct.unpack_from(">q", b, o)[0]
+def _length_prefix(b: bytes, o: int):
+    value = shift = 0
+    while True:
+        if o >= len(b):
+            raise ReportError("string length runs past the end of the report")
+        byte = b[o]
+        o += 1
+        value |= (byte & 0x7F) << shift
+        shift += 7
+        if not byte & 0x80:
+            return value, o
 
 
-def _is_filetime(value: int) -> bool:
-    return _FT_LO < (value & 0xFFFFFFFFFFFFFFFF) < _FT_HI
-
-
-class PlayerReport:
-    __slots__ = ("profileid", "filetime", "values")
-
-    def __init__(self, profileid):
-        self.profileid = profileid
-        self.filetime = 0  # this player's report FILETIME (raw ticks), 0 if none
-        self.values = {}  # keyid -> int32 value (the actual stats)
-
-
-def raw_entries(blob: bytes):
-    """Every typed entry in wire order as (offset, keyid, kind, value), kind in {"i32","f32","ft"}.
-    This view of the stat stream does not depend on the per-player block split."""
-    out = []
-    if len(blob) < 0x44 or _u32(blob, 0) != 2:
-        return out
-    nplayers = _u16(blob, 0x20)
-    o, n = 0x44 + nplayers * 20, len(blob)
-    while o + 4 <= n:
-        keyid = _u16(blob, o)
-        typ = _u16(blob, o + 2)
-        w = _TW.get(typ)
-        if w is None or keyid == 0 or o + 4 + w > n:
+def _read_keys(b: bytes, o: int, count: int):
+    keys = {}
+    for _ in range(count):
+        key, typ = struct.unpack_from(">HH", b, o)
+        o += 4
+        if typ == KEY_INT32:
+            value = struct.unpack_from(">i", b, o)[0]
+            o += 4
+        elif typ == KEY_INT16:
+            value = struct.unpack_from(">h", b, o)[0]
             o += 2
-            continue
-        if typ == 0x0005:
-            raw = _i64(blob, o + 4)
-            out.append((o, keyid, "ft" if _is_filetime(raw) else "i64", raw))
-        elif typ == 0x0004:
-            out.append((o, keyid, "f32", struct.unpack_from(">f", blob, o + 4)[0]))
+        elif typ == KEY_BYTE:
+            value = b[o]
+            o += 1
+        elif typ == KEY_STRING:
+            n, o = _length_prefix(b, o)
+            value = b[o : o + n].decode("utf-8", "replace")
+            o += n
+        elif typ == KEY_FLOAT:
+            value = struct.unpack_from(">f", b, o)[0]
+            o += 4
+        elif typ == KEY_INT64:
+            value = struct.unpack_from(">q", b, o)[0]
+            o += 8
         else:
-            out.append((o, keyid, "i32", _i32(blob, o + 4)))
-        o += 4 + w
-    return out
+            raise ReportError(f"unknown key type {typ} for key {key}")
+        keys[key] = (typ, value)
+    return keys, o
 
 
-def parse(blob: bytes):
-    """Decode a SubmitReport blob into a list of PlayerReport. Empty/close reports (0 keys) yield []."""
-    if len(blob) < 0x44 or _u32(blob, 0) != 2:
-        return []
-    nplayers = _u16(blob, 0x20)
-    total_keys = _u32(blob, 0x24)
-    if nplayers <= 0 or total_keys == 0:
-        return []
-    profileids = [_u32(blob, 0x44 + i * 20) for i in range(nplayers)]
+def parse(blob: bytes) -> Report:
+    """Raises ReportError for a blob that does not parse."""
+    if len(blob) < HEADER_SIZE:
+        raise ReportError(f"report is {len(blob)} bytes, shorter than its header")
+    r = Report()
+    r.protocol, r.version = struct.unpack_from(">II", blob, 0)
+    r.checksum = blob[8:24]
+    r.status, r.flags = struct.unpack_from(">II", blob, 0x18)
+    players, teams, game_keys, _player_keys, _team_keys, _ = struct.unpack_from(">6H", blob, 0x20)
+    roster_len, auth_len, results_len, game_len, player_len, team_len = struct.unpack_from(">6I", blob, 0x2C)
+    # Single-player reports can end with two zero bytes after the sections, so only require the sections to fit.
+    if HEADER_SIZE + roster_len + auth_len + results_len + game_len + player_len + team_len > len(blob):
+        raise ReportError("section lengths run past the end of the report")
+    if roster_len != 20 * players:
+        raise ReportError(f"roster is {roster_len} bytes for {players} players")
 
-    # Split the flat stream into one block per player. Every block is the same fixed keyid template
-    # emitted once, so a keyid repeating inside the current block starts the next player's block. The
-    # per-datum FILETIMEs also differ within a block, so they cannot mark the boundary.
-    blocks, cur, seen = [], [], set()
-    for _off, keyid, kind, val in raw_entries(blob):
-        if keyid in seen:
-            blocks.append(cur)
-            cur, seen = [], set()
-        cur.append((keyid, kind, val))
-        seen.add(keyid)
-    if cur:
-        blocks.append(cur)
+    try:
+        o = HEADER_SIZE
+        roster = []
+        for _ in range(players):
+            roster.append((blob[o : o + 16], struct.unpack_from(">I", blob, o + 16)[0]))
+            o += 20
+        o += auth_len
+        results = list(struct.unpack_from(f">{results_len // 4}I", blob, o))
+        o += results_len
 
-    reports = []
-    for idx, profileid in enumerate(profileids):
-        pr = PlayerReport(profileid)
-        if idx < len(blocks):
-            for keyid, kind, val in blocks[idx]:
-                if kind == "ft":  # metadata; the latest is the block time
-                    if val > pr.filetime:
-                        pr.filetime = val
-                elif kind == "i32":
-                    pr.values[keyid] = val
-        reports.append(pr)
-    return reports
+        end = o + game_len
+        r.game_keys, o = _read_keys(blob, o, game_keys)
+        if o != end:
+            raise ReportError("game section length does not match its keys")
+
+        end = o + player_len
+        for i, (connection_id, team) in enumerate(roster):
+            (count,) = struct.unpack_from(">H", blob, o)
+            block = PlayerBlock(i, connection_id, team, results[i] if i < len(results) else None)
+            block.keys, o = _read_keys(blob, o + 2, count)
+            r.players.append(block)
+        if o != end:
+            raise ReportError("player section length does not match its keys")
+
+        for _ in range(teams):
+            (count,) = struct.unpack_from(">H", blob, o)
+            keys, o = _read_keys(blob, o + 2, count)
+            r.team_keys.append(keys)
+    except struct.error as e:
+        raise ReportError(f"report is truncated: {e}") from e
+    return r

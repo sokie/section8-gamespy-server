@@ -7,28 +7,31 @@ requires-python = ">=3.10"
 [tool.ruff]
 target-version = "py310"
 line-length = 120
+# Generated, with one stat per line so it is easy to search.
+extend-exclude = ["server/statdefs.py"]
 
 [tool.ruff.lint]
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # Pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
-    "SIM",    # flake8-simplify
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "SIM",
 ]
 ignore = [
-    "E501",   # line too long (handled by the formatter)
-    "E722",   # bare except (several are deliberate, to keep a listener alive)
-    "SIM105", # contextlib.suppress suggestion (prefer explicit try/except)
-    "SIM108", # use ternary operator instead of if-else
+    "E501",   # the formatter sets line length
+    "E722",   # a bare except keeps a listener alive
+    "SIM105",
+    "SIM108",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-# Both bootstrap sys.path before importing `server`, so their imports cannot sit at the top.
-"scripts/set_test_xp.py" = ["E402"]
+# These set sys.path before they import `server`.
+"scripts/stats_tool.py" = ["E402"]
+"scripts/probe_columns.py" = ["E402"]
 "tests/smoke.py" = ["E402"]
 
 [tool.ruff.lint.isort]
