@@ -1,25 +1,24 @@
 # Section 8 GameSpy Server Emulator
 
-An open-source server emulator for the **Section 8** shooters by TimeGate Studios. It implements the
-GameSpy / ATLAS backend protocols the games reach through XLSP, so login, ranked stats, awards, XP and
-leaderboards work again after the official GameSpy shutdown.
+Server emulator for the **Section 8** games by TimeGate Studios. It implements the GameSpy / ATLAS
+backend that the games reach through XLSP. Login, ranked stats, awards, XP and levels work again after
+the GameSpy shutdown.
 
 ## Quick Start
 
 **Prerequisites**
 
-- **Python 3.10 or newer.** There are no packages to install, because the server uses only the standard
-  library. `pip install -r requirements.txt` is a valid no-op.
-- **The game, patched with XLLN**, plus the **Section 8 quick-patch module** that rewrites the
-  AuthService and Competition URLs to `http://` and skips the certificate signature check. See
+- **Python 3.10 or newer.** The server uses only the standard library. `pip install -r requirements.txt`
+  installs nothing.
+- **The game with XLLN**, and the **Section 8 quick-patch module**. The module changes the AuthService
+  and Competition URLs to `http://` and skips the certificate signature check. See
   [Companion pieces](#companion-pieces-not-in-this-repo).
 
 **Game client setup**
 
-1. Install XLLN (`xlive.dll`) alongside the game and enable the generic XLSP transport for Section 8.
-2. Install the Section 8 quick-patch module. The shipped `.exe` stays untouched on disk, because the
-   patch is applied in memory.
-3. Point XLLN's title-server address at the machine running this server: localhost for solo, or the
+1. Install XLLN (`xlive.dll`) with the game and turn on the generic XLSP transport for Section 8.
+2. Install the Section 8 quick-patch module. It patches in memory, so the `.exe` on disk does not change.
+3. Set XLLN's title-server address to the machine that runs this server: localhost for one PC, or the
    host's LAN IP for several PCs.
 
 **Install and run**
@@ -37,9 +36,9 @@ cp config.example.json config.json
 python -m server config.json
 ```
 
-The server binds `0.0.0.0`, so one machine hosts the whole LAN: point every player's XLLN title-server
-address at it and all PCs read and write the same `section8.db`, which gives real cross-player
-leaderboards. Set `"bind_address": "127.0.0.1"` for solo.
+- The server binds `0.0.0.0`, so one machine can host the whole LAN. All PCs then read and write the
+  same `section8.db`, so every career is in one place.
+- Set `"bind_address": "127.0.0.1"` for one PC.
 
 ## Supported Games
 
@@ -50,51 +49,63 @@ leaderboards. Set `"bind_address": "127.0.0.1"` for solo.
 
 ## Running a ranked dedicated server
 
-Conquest, Assault and Skirmish can only be played ranked on a dedicated server; Swarm can be played ranked from an
-ordinary in-game listen server. The dedicated server is headless and runs from the main game launcher.
-Start this backend first, then launch the game.
+- Conquest, Assault and Skirmish are ranked only on a dedicated server. Swarm is also ranked on a normal
+  in-game listen server.
+- The dedicated server has no window and starts from the main game launcher.
+- Start this server first, then the game.
 
-Conquest, which is the mode you get when `?game=` is omitted:
+Conquest, the default when `?game=` is not set:
 
 ```
 S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?adminpassword=123?maxplayers=40?bots=Yes?FF=part?difficulty=3?goalscore=2000?timelimit=15?mapcycle=TER01_Base-LargeA+ARC02_Base-LargeA+DES01_Base-LargeA+LAV02_Base-LargeA -login=123 -password=123 -unattended -xlln_local_instance_id=2
 ```
 
-Assault, otherwise identical:
+Assault, the same with `?game=`:
 
 ```
 S9.exe server TER01_Base-LargeA?servername=SokieeTest?ranked=1?game=S9Game.S9GameInfoAssault?adminpassword=123?maxplayers=40?bots=Yes?FF=part?difficulty=3?goalscore=2000?timelimit=15?mapcycle=TER01_Base-LargeA+ARC02_Base-LargeA+DES01_Base-LargeA+LAV02_Base-LargeA -login=123 -password=123 -unattended -xlln_local_instance_id=2
 ```
 
-- **`-login` / `-password`** are the server's own GameSpy account credentials. This server creates the
-  account on first use, logs it in, and issues its certificate, exactly as it does for a player, so
-  nothing has to be registered in advance.
-- **`?ranked=1`** declares the match ranked. It is server-authoritative, so a joining client cannot
-  force or fake it. The engine appends `?Dedicated` itself in `server` mode, so do not add it.
-- **`-xlln_local_instance_id=2`** is required on every dedicated-server launch. Without it the server
-  and your game client share one XLLN config, the server's `-login` name overwrites your client's
-  username, and your own ranked stats read empty.
-- **Assault and Skirmish also need the news file**, `news/section8_news.txt`. Without it the server
-  starts, resolves the mode, then exits with "This game mode is not available."
+| Argument | Use |
+|---|---|
+| `-login` / `-password` | The server's own GameSpy account. This server creates it on first use and gives it a certificate, as for a player, so nothing needs to be registered first. |
+| `?ranked=1` | Makes the match ranked. Only the server sets it, so a client cannot force it. The engine adds `?Dedicated` in `server` mode, so do not add it. |
+| `-xlln_local_instance_id=2` | Required on every dedicated server launch. Without it the server and your client share one XLLN config, the server's `-login` name replaces your username, and your ranked stats read empty. |
 
-Game modes, maps, the XLLN instance setup and the ranked settings the game enforces are in
-[`docs/dedicated_ranked_server.md`](docs/dedicated_ranked_server.md).
+- Assault and Skirmish also need the news file `news/section8_news.txt`. Without it the server starts,
+  reads the mode, then exits with "This game mode is not available."
+- Game modes, maps, XLLN instances and the ranked settings the game requires:
+  [`docs/dedicated_ranked_server.md`](docs/dedicated_ranked_server.md).
 
 ## Persistence
 
-One SQLite file, `section8.db`, created on first run. Sake records are stored entity-attribute-value, 
-so no schema is hardcoded. See [`docs/architecture.md`](docs/architecture.md#persistence).
+- One SQLite file, `section8.db`, created on first run.
+- Sake records are stored entity-attribute-value, so the code holds no schema. Every ranked match is
+  kept as history.
+- On start the server migrates a database from an older build. It keeps career XP and clears the stats
+  stored under wrong names.
+- Details: [`docs/architecture.md`](docs/architecture.md#persistence).
+
+Read a career by stat name, with the server stopped:
+
+```bash
+python scripts/stats_tool.py show <nick>       # rank, totals, time per mode, records, badges, feats, gear
+python scripts/stats_tool.py history <nick>    # the matches behind it
+```
+
+The views `player_career` and `player_awards` show the same in any SQLite browser.
 
 ## Running Tests
 
-In-process smoke tests, no game required. They exercise the codecs, the Sake `SearchForRecords` and
-write-then-read cycle, and the GPCM login handshake:
+The smoke tests run in-process, with no game. They cover the codecs, Sake searches and writes, the GPCM
+login handshake, and the ranked stats path from the reports in `tests/fixtures` to the career that Sake
+returns:
 
 ```bash
 python -m tests.smoke
 ```
 
-The lint, test and type-check jobs that CI runs on every push need the dev tools:
+CI runs the lint, test and type-check jobs on every push. They need the dev tools:
 
 ```bash
 pip install -r requirements-dev.txt
@@ -106,97 +117,97 @@ mypy server --ignore-missing-imports   # non-blocking, reports only
 
 ## Building a standalone executable
 
-Tagging a `v*` release builds a single-file executable for Linux, Windows and both macOS
-architectures, and attaches them to a GitHub release. To build one locally:
+A `v*` tag builds one executable each for Linux, Windows and both macOS architectures, and attaches them
+to a GitHub release. To build one locally:
 
 ```bash
 pip install -r requirements-dev.txt
 pyinstaller section8-server.spec      # -> dist/section8-server[.exe]
 ```
 
-The executable resolves `config.json`, the database and the log next to itself, whatever directory you
-start it from. `news/section8_news.txt` is deliberately **not** bundled inside it, since editing that
-file is how you unlock Assault and Skirmish and set the MOTD. Keep it in a `news/` folder beside the
-executable, which is how the release archives ship it.
+- The executable finds `config.json`, the database and the log next to itself, from any start directory.
+- `news/section8_news.txt` is not inside the executable, because you edit it to unlock Assault and
+  Skirmish and to set the MOTD. Keep it in a `news/` folder next to the executable. The release archives
+  ship it that way.
 
 ## Documentation
 
-| Document | Description |
-|----------|-------------|
-| [`docs/architecture.md`](docs/architecture.md) | Service ports, components, and one online session end to end |
+| Document | Content |
+|----------|---------|
+| [`docs/architecture.md`](docs/architecture.md) | Service ports, components, one session end to end, the report layout, and how ranked stats are mapped, folded and read |
+| [`docs/stat_catalog.csv`](docs/stat_catalog.csv) | Every ranked stat: report key, property id, `PlayerStats_v6` column, fold and name |
 | [`docs/dedicated_ranked_server.md`](docs/dedicated_ranked_server.md) | Game modes, maps, XLLN instances, and the settings the game requires for a ranked match |
 | [`docs/game_modes_and_news.md`](docs/game_modes_and_news.md) | Why Assault and Skirmish are locked, and how to write the news file that unlocks them |
 | [`docs/playerstats_v6_fields.txt`](docs/playerstats_v6_fields.txt) | The ~991 `PlayerStats_v6` fields the game requests |
-| [`docs/section8_stat_schema.json`](docs/section8_stat_schema.json) | The ATLAS stat schema (keyid to name, per view), from `S9Game.u` |
-| [`docs/section8_stat_keyids.txt`](docs/section8_stat_keyids.txt) | Flat keyid to name listing |
-| [`docs/stat_keymap.json`](docs/stat_keymap.json) | Read-side keyid to `Ranked_<field>` column map |
+| [`docs/section8_stat_schema.json`](docs/section8_stat_schema.json) | The stat read views from `S9Game.u`: read column id to name, per view. Read ids are not report keys |
 
 ## Companion pieces (not in this repo)
 
-- **XLiveLessNess (XLLN)**, the `xlive.dll` that hands the game a routable address for this server and
-  tunnels the XLSP ports.
-- **The Section 8 quick-patch module**, which does the two `https` to `http` URL rewrites and the
-  certificate-check `JNZ` to `JMP`, in memory and gated on the exe SHA, so the shipped `.exe` stays
-  pristine on disk.
+- **XLiveLessNess (XLLN):** the `xlive.dll` that gives the game an address for this server and tunnels
+  the XLSP ports.
+- **Section 8 quick-patch module:** changes the two `https` URLs to `http` and the certificate check
+  `JNZ` to `JMP`. It patches in memory and only for a known exe SHA, so the `.exe` on disk does not
+  change.
 
 ## Project Goals
 
-- **Preservation.** Keep a shut-down online game playable with ranked progression, with no
-  reliance on any third-party service.
-- **Documentation.** Write down the GameSpy/ATLAS wire formats and the Section 8 stat schema that were
-  reverse-engineered to build this, so the knowledge outlives the code. See [`docs/`](docs).
-- **Player empowerment.** Anyone can host for their friends: one machine, one SQLite file, real
-  cross-player leaderboards on a LAN or over the internet.
-- **Reference implementation.** A small, dependency-free codebase that shows how the GameSpy presence,
-  certificate, Sake storage and ATLAS competition protocols fit together.
+- **Preservation:** keep a shut-down online game playable with ranked progression, with no third-party
+  service.
+- **Documentation:** record the GameSpy/ATLAS wire formats and the Section 8 stat schema. See
+  [`docs/`](docs).
+- **Self-hosting:** one machine and one SQLite file give shared ranked careers, on a LAN or the internet.
+- **Reference implementation:** a small codebase with no dependencies that shows how the GameSpy
+  presence, certificate, Sake storage and ATLAS competition protocols fit together.
 
 ## Features
 
 ### Implemented
 
 - [x] **GPCM login and account creation.** `\newuser\` and `\login\`, GameSpy `passenc` decode, the
-      swapped-challenge `\proof\`, and stable per-uniquenick `profileid`s that persist across sessions
-      and machines.
-- [x] **Login certificate.** AuthService `LoginUniqueNick` returns the certificate the game requires.
-      It is an unsigned placeholder, accepted in-game through the XLLN quick-patch.
-- [x] **Sake persistent storage.** `SearchForRecords`, `CreateRecord`, `UpdateRecord`, `GetMyRecords`
-      and `GetRecordCount` over a schema-free store that learns each field's Sake type from the
-      client's own writes. Serves `PlayerStats_v6`, `S8Level_v6`, `NewsStats_v6` and
-      `PlayerProfile2_v6`, with zeroed synthetic rows for a fresh player.
-- [x] **ATLAS ranked match reports.** The full `CheckProfileOnBanList` to `CreateSession` to
-      `SetReportIntention` to `SubmitReport` flow, including decoding the binary SC report blob.
-- [x] **Per-round XP accumulation.** The report ships the XP earned that round, which the server sums
-      into each player's career `Ranked_xp`, idempotent by report timestamp so a resent report cannot
-      double-count. Verified in-game against the game's own XP counter, for the host and for a joining
-      client.
-- [x] **Level and rank derivation**, mirrored into the `S8Level_v6` leaderboard table.
-- [x] **Shared leaderboards.** Point several PCs at one server and they read and write the same DB, so
-      a sort ranks everyone who has ever connected.
-- [x] **Dedicated ranked server mode.** The dedicated server logs in, is issued a certificate, passes
-      the ATLAS trusted-server check, and publishes its live `ServerStatusTG09_v6` record, so it
-      appears in the browser with the ranked (ladder) icon and its reports count. Records are keyed per
-      owner, so many dedicated servers and players coexist without recordid collisions.
-- [x] **News delivery.** The `NewsStats_v6` index plus the `SakeFileServer` download, served UTF-16LE.
-      This unlocks the **Assault** and **Skirmish** game modes and drives the in-game MOTD banner, with
-      no binary patching.
-- [x] **MOTD service.** Answers `motd.asp` and `vercheck` so those requests do not fail.
+      swapped-challenge `\proof\`, and a stable `profileid` per uniquenick on every session and machine.
+- [x] **Login certificate.** AuthService `LoginUniqueNick` returns the certificate the game requires. It
+      is an unsigned placeholder that the XLLN quick-patch makes the game accept.
+- [x] **Sake storage.** `SearchForRecords`, `CreateRecord`, `UpdateRecord`, `GetMyRecords`,
+      `GetSpecificRecords` and `GetRecordCount`. Each field takes its Sake type from the client's
+      writes. Searches support `filter`, multi-column `sort`, `offset` and `max`, `targetRecordFilter`
+      with `surrounding`, `ownerids`, and `row` as the rank. Serves `PlayerStats_v6`,
+      `PlayerProfile2_v6`, `S8Level_v6`, `ServerStatusTG09_v6` and `NewsStats_v6`, with zeroed rows for
+      a new player.
+- [x] **ATLAS ranked match reports.** `CheckProfileOnBanList`, `CreateSession`, `SetReportIntention`,
+      `SubmitReport`, with the binary SC report decoded section by section.
+- [x] **Every ranked stat mapped.** All 991 report keys, named from the game's packages
+      (`StatsKeyMappings` in `OnlineSubsystemGameSpy.u`): career totals, records in a life, time played
+      per game mode, 32 badges, 32 feats with their x1/x2/x3 tiers, and 6 stats for each of the 46 weapon
+      mods. See [`docs/stat_catalog.csv`](docs/stat_catalog.csv).
+- [x] **Lifetime careers.** Each match folds onto the player's career as the game defines each stat:
+      totals add up, records keep their best value and the date it was set, overwrites replace. Level
+      and rank come from the game's XP table. Every match is kept as history, a resent report counts
+      once, and careers can be rebuilt from the history.
+- [x] **Shared stats.** Several PCs that use one server read and write the same DB.
+- [x] **Dedicated ranked server mode.** The dedicated server logs in, gets a certificate, passes the ATLAS
+      trusted-server check and publishes its live `ServerStatusTG09_v6` record. It shows in the browser
+      with the ranked (ladder) icon and its reports count. Records are keyed per owner, so many servers
+      and players have no recordid collisions.
+- [x] **News delivery.** The `NewsStats_v6` index and the `SakeFileServer` download, served UTF-16LE.
+      This unlocks **Assault** and **Skirmish** and sets the in-game MOTD banner, with no binary patch.
+- [x] **MOTD service.** Answers `motd.asp` and `vercheck`, so those requests do not fail.
 
 ### Not implemented
 
-- [ ] **The exact XP-to-level curve.** The game computes the level it displays from `Ranked_xp` itself,
-      using a custom table. The stored `Ranked_Level` is a leaderboard-sort proxy fitted to the
-      observed low-level thresholds, and it drifts a few levels at the high end.
-- [ ] **Names for the non-XP report keyids.** Only keyid 11 (XP) is decoded. The rest are stored
-      verbatim as `Ranked_wkey_<id>` for later analysis.
-- [ ] **Career totals the report never carries**, such as TimePlayed. The report holds per-round
-      scoring stats only, so any such total needs a server-side derivation.
-- [ ] **Section 8 (base game) support**, which is present as a config stub only.
+- [ ] **Section 8 (base game) support.** Config stub only. Prejudice reads the base game level from
+      `S8Level_v6` to unlock its veteran items, so that table stays empty until the base game reports
+      here.
+
+Not part of this server: leaderboard screens and achievements use Games for Windows - Live, which XLLN
+serves. The client decides unlocks from the level and achievements. See
+[`docs/architecture.md`](docs/architecture.md#not-stored-on-the-server).
 
 ## Contributing
 
-Contributions are welcome: protocol captures, new stat-keyid decodes or base-game support. The codebase is deliberately small and
-dependency-free, so please keep it that way where you can. `scripts/set_test_xp.py` sets a player's XP
-directly, which is handy for testing the client-side level display.
+- Contributions are welcome: protocol captures and base-game support.
+- Keep the codebase small and free of dependencies.
+- `scripts/stats_tool.py set-xp` sets a player's XP. `scripts/probe_columns.py` writes marker values that
+  show which screen row a column drives.
 
 ## License
 
@@ -204,7 +215,7 @@ See the repository for license details.
 
 ## Disclaimer
 
-This is a fan-made preservation project. It is not affiliated with, endorsed by, or connected to
-TimeGate Studios, GameSpy, or any rights holder. It ships no game code or assets, only a clean-room
-reimplementation of the network services, built for interoperability and preservation. Use it only
-with games you own.
+This is a fan-made preservation project. It is not affiliated with, endorsed by or connected to TimeGate
+Studios, GameSpy or any rights holder. It ships no game code or assets, only a clean-room
+reimplementation of the network services, for interoperability and preservation. Use it only with games
+you own.

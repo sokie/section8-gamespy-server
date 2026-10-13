@@ -1,58 +1,155 @@
-"""SQLite-backed Sake record store.
-
-Sake tables are stored entity-attribute-value, a `records` row per (table, owner, recordid) and a
-`fields` row per typed value, rather than as real columns: PlayerStats_v6 alone has about 991 of them,
-and this way the schema is never hardcoded and each field's Sake type is learnt from the client's own
-UpdateRecord writes.
-
-A recordid is owner-relative, and numbering restarts per owner. Every request is authenticated, and a
-client only ever searches by its own ownerid, so two dedicated servers can each hold their own
-ServerStatusTG09_v6 recordid 1 without colliding.
-"""
-
 import sqlite3
 import threading
+from contextlib import contextmanager
+from datetime import datetime, timezone
+
+from . import statdefs, stats
+
+SCHEMA_VERSION = 2
+
+_PLAYER_STATS = "PlayerStats_v6"
+
+_SCHEMA = """
+CREATE TABLE IF NOT EXISTS records (
+    table_id   TEXT    NOT NULL,
+    owner_id   INTEGER NOT NULL,
+    record_id  INTEGER NOT NULL,
+    PRIMARY KEY (table_id, owner_id, record_id)
+);
+CREATE INDEX IF NOT EXISTS idx_records_owner ON records(table_id, owner_id);
+CREATE TABLE IF NOT EXISTS fields (
+    table_id   TEXT    NOT NULL,
+    owner_id   INTEGER NOT NULL,
+    record_id  INTEGER NOT NULL,
+    name       TEXT    NOT NULL,
+    value_type TEXT    NOT NULL,
+    value      TEXT,
+    PRIMARY KEY (table_id, owner_id, record_id, name)
+);
+CREATE TABLE IF NOT EXISTS profiles (
+    uniquenick TEXT PRIMARY KEY,
+    profileid  INTEGER UNIQUE NOT NULL
+);
+CREATE TABLE IF NOT EXISTS passwords (
+    uniquenick TEXT PRIMARY KEY,
+    password   TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS matches (
+    match_id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    report_sha256  TEXT    NOT NULL UNIQUE,
+    received_at    TEXT    NOT NULL,
+    csid           TEXT,
+    host_profileid INTEGER,
+    game_mode      INTEGER,
+    game_mode_name TEXT,
+    report_version INTEGER,
+    report_status  INTEGER,
+    player_count   INTEGER
+);
+CREATE TABLE IF NOT EXISTS match_players (
+    match_id      INTEGER NOT NULL,
+    slot          INTEGER NOT NULL,
+    profileid     INTEGER,
+    connection_id TEXT,
+    team          INTEGER,
+    result        INTEGER,
+    xp_gained     INTEGER,
+    level_after   INTEGER,
+    PRIMARY KEY (match_id, slot)
+);
+CREATE INDEX IF NOT EXISTS idx_match_players_profile ON match_players(profileid);
+CREATE TABLE IF NOT EXISTS match_stats (
+    match_id    INTEGER NOT NULL,
+    slot        INTEGER NOT NULL,
+    key         INTEGER NOT NULL,
+    column_name TEXT    NOT NULL,
+    value       TEXT,
+    PRIMARY KEY (match_id, slot, key)
+);
+
+CREATE TABLE IF NOT EXISTS stat_defs (
+    key          INTEGER PRIMARY KEY,
+    property_id  INTEGER NOT NULL,
+    column_name  TEXT    NOT NULL UNIQUE,
+    fold         TEXT    NOT NULL,
+    family       TEXT    NOT NULL,
+    item_id      INTEGER,
+    item_name    TEXT,
+    label        TEXT    NOT NULL,
+    date_of      TEXT,
+    read_by_game INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS award_defs (
+    kind        TEXT    NOT NULL,
+    award_id    INTEGER NOT NULL,
+    name        TEXT    NOT NULL,
+    category    TEXT,
+    description TEXT,
+    target      INTEGER,
+    reward_xp   INTEGER,
+    PRIMARY KEY (kind, award_id)
+);
+
+DROP VIEW IF EXISTS player_career;
+CREATE VIEW player_career AS
+    SELECT f.owner_id AS profileid, p.uniquenick, d.family, d.item_id, d.item_name, d.label,
+           f.name AS column_name, f.value
+    FROM fields f
+    JOIN stat_defs d ON d.column_name = f.name
+    LEFT JOIN profiles p ON p.profileid = f.owner_id
+    WHERE f.table_id = 'PlayerStats_v6';
+
+DROP VIEW IF EXISTS player_awards;
+CREATE VIEW player_awards AS
+    SELECT f.owner_id AS profileid, p.uniquenick, a.kind, a.award_id, a.name, a.category,
+           CAST(f.value AS INTEGER) AS times_earned, dt.value AS earned_date
+    FROM fields f
+    JOIN stat_defs d ON d.column_name = f.name AND d.family IN ('badge', 'feat') AND d.fold = 'sum'
+         AND (d.family = 'badge' OR d.column_name GLOB 'Ranked_Feats_F*')
+    JOIN award_defs a ON a.kind = d.family AND a.award_id = d.item_id
+    LEFT JOIN stat_defs dd ON dd.date_of = d.column_name
+    LEFT JOIN fields dt ON dt.table_id = f.table_id AND dt.owner_id = f.owner_id
+         AND dt.record_id = f.record_id AND dt.name = dd.column_name
+    LEFT JOIN profiles p ON p.profileid = f.owner_id
+    WHERE f.table_id = 'PlayerStats_v6' AND CAST(f.value AS INTEGER) > 0;
+"""
 
 
 class Store:
     def __init__(self, path: str):
         self._db = sqlite3.connect(path, check_same_thread=False)
-        self._lock = threading.Lock()
+        self._lock = threading.RLock()
+        self._depth = 0
         self._db.execute("PRAGMA journal_mode=WAL")
-        self._migrate()
-        self._db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS records (
-                table_id   TEXT    NOT NULL,
-                owner_id   INTEGER NOT NULL,
-                record_id  INTEGER NOT NULL,
-                PRIMARY KEY (table_id, owner_id, record_id)
-            );
-            CREATE INDEX IF NOT EXISTS idx_records_owner ON records(table_id, owner_id);
-            CREATE TABLE IF NOT EXISTS fields (
-                table_id   TEXT    NOT NULL,
-                owner_id   INTEGER NOT NULL,
-                record_id  INTEGER NOT NULL,
-                name       TEXT    NOT NULL,
-                value_type TEXT    NOT NULL,
-                value      TEXT,
-                PRIMARY KEY (table_id, owner_id, record_id, name)
-            );
-            CREATE TABLE IF NOT EXISTS profiles (
-                uniquenick TEXT PRIMARY KEY,
-                profileid  INTEGER UNIQUE NOT NULL
-            );
-            CREATE TABLE IF NOT EXISTS passwords (
-                uniquenick TEXT PRIMARY KEY,
-                password   TEXT NOT NULL
-            );
-            """
-        )
+        self._migrate_owner_keyed()
+        self._db.executescript(_SCHEMA)
+        self._migrate_stats_v2()
+        self._sync_stat_defs()
         self._db.commit()
 
-    def _migrate(self) -> None:
-        """Rebuild a pre-owner-keyed DB, whose `fields` table carried no owner_id, onto the owner-scoped
-        keying. owner_id comes from the records table, so an orphaned field row is dropped."""
+    @contextmanager
+    def transaction(self):
+        """Groups writes into one commit. A nested call joins the outer transaction."""
+        with self._lock:
+            self._depth += 1
+            try:
+                yield self
+            except BaseException:
+                self._depth -= 1
+                if self._depth == 0:
+                    self._db.rollback()
+                raise
+            self._depth -= 1
+            if self._depth == 0:
+                self._db.commit()
+
+    def _commit(self):
+        if self._depth == 0:
+            self._db.commit()
+
+    def _migrate_owner_keyed(self) -> None:
+        """Moves a database from before owner keys onto owner keys."""
         cols = [r[1] for r in self._db.execute("PRAGMA table_info(fields)")]
         if not cols or "owner_id" in cols:
             return
@@ -87,7 +184,74 @@ class Store:
         )
         self._db.commit()
 
-    # Real GameSpy profile ids are 8 digits, so start where one looks plausible to the game.
+    def _migrate_stats_v2(self) -> None:
+        """Clears the stats an older schema stored under wrong names, except career XP. Also clears
+        S8Level_v6, which older builds filled with this title's level."""
+        (version,) = self._db.execute("PRAGMA user_version").fetchone()
+        if version >= SCHEMA_VERSION:
+            return
+        self._db.execute(
+            "DELETE FROM fields WHERE table_id=? AND name NOT IN (?, ?)", (_PLAYER_STATS, stats.XP_COLUMN, "ownerid")
+        )
+        now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        xp_key = stats.BY_COLUMN[stats.XP_COLUMN].key
+        for owner_id, record_id, xp in self._db.execute(
+            "SELECT owner_id, record_id, value FROM fields WHERE table_id=? AND name=?",
+            (_PLAYER_STATS, stats.XP_COLUMN),
+        ).fetchall():
+            level = stats.level_for_xp(int(xp or 0))
+            self._db.execute(
+                "INSERT OR REPLACE INTO fields VALUES(?,?,?,?,?,?)",
+                (_PLAYER_STATS, owner_id, record_id, stats.LEVEL_COLUMN, "intValue", str(level)),
+            )
+            # Keep the XP as a match of its own, so a rebuilt career still has it.
+            cur = self._db.execute(
+                "INSERT INTO matches(report_sha256, received_at, csid, player_count) VALUES(?,?,?,1)",
+                (f"migrated-career-xp:{owner_id}", now, "migration"),
+            )
+            self._db.execute(
+                "INSERT INTO match_players(match_id, slot, profileid, xp_gained, level_after) VALUES(?,0,?,?,?)",
+                (cur.lastrowid, owner_id, int(xp or 0), level),
+            )
+            self._db.execute(
+                "INSERT INTO match_stats VALUES(?,0,?,?,?)", (cur.lastrowid, xp_key, stats.XP_COLUMN, str(int(xp or 0)))
+            )
+        self._db.execute("DELETE FROM fields WHERE table_id='S8Level_v6'")
+        self._db.execute("DELETE FROM records WHERE table_id='S8Level_v6'")
+        self._db.execute(f"PRAGMA user_version={SCHEMA_VERSION}")
+        self._db.commit()
+
+    def _sync_stat_defs(self) -> None:
+        """Rewrites the name tables on every start, so they always match statdefs."""
+        self._db.execute("DELETE FROM stat_defs")
+        rows = []
+        for s in stats.BY_KEY.values():
+            rows.append(
+                (
+                    s.key,
+                    s.property,
+                    s.column,
+                    s.fold,
+                    s.family,
+                    s.item,
+                    _item_name(s),
+                    s.label,
+                    s.date_of,
+                    int(s.read_by_game),
+                )
+            )
+        self._db.executemany("INSERT INTO stat_defs VALUES(?,?,?,?,?,?,?,?,?,?)", rows)
+        self._db.execute("DELETE FROM award_defs")
+        self._db.executemany(
+            "INSERT INTO award_defs VALUES('badge',?,?,?,?,?,?)",
+            [(i, *b) for i, b in statdefs.BADGES.items()],
+        )
+        self._db.executemany(
+            "INSERT INTO award_defs VALUES('feat',?,?,?,?,?,NULL)",
+            [(i, *f) for i, f in statdefs.FEATS.items()],
+        )
+
+    # GameSpy profile ids have 8 digits.
     PROFILE_ID_BASE = 10000001
 
     def get_or_create_profile(self, uniquenick: str) -> int:
@@ -100,11 +264,22 @@ class Store:
             ).fetchone()
             profileid = row[0]
             self._db.execute("INSERT INTO profiles(uniquenick, profileid) VALUES(?,?)", (uniquenick, profileid))
-            self._db.commit()
+            self._commit()
         return profileid
 
+    def nick_for_profile(self, profileid: int):
+        with self._lock:
+            row = self._db.execute("SELECT uniquenick FROM profiles WHERE profileid=?", (profileid,)).fetchone()
+        return row[0] if row else None
+
+    def profile_for_nick(self, uniquenick: str):
+        with self._lock:
+            row = self._db.execute(
+                "SELECT profileid FROM profiles WHERE uniquenick=? COLLATE NOCASE", (uniquenick,)
+            ).fetchone()
+        return row[0] if row else None
+
     def get_password(self, uniquenick: str):
-        """The plaintext GameSpy password learnt from a prior \\newuser\\, or None."""
         with self._lock:
             row = self._db.execute("SELECT password FROM passwords WHERE uniquenick=?", (uniquenick,)).fetchone()
         return row[0] if row else None
@@ -116,7 +291,7 @@ class Store:
                 "ON CONFLICT(uniquenick) DO UPDATE SET password=excluded.password",
                 (uniquenick, password),
             )
-            self._db.commit()
+            self._commit()
 
     def record_id_for_owner(self, table_id: str, owner_id: int):
         with self._lock:
@@ -127,8 +302,6 @@ class Store:
         return row[0] if row else None
 
     def create_record(self, table_id: str, owner_id: int) -> int:
-        """Allocate and bind the next recordid for this owner. Numbering is per-owner, so each owner's
-        first record is 1."""
         with self._lock:
             record_id = self._db.execute(
                 "SELECT COALESCE(MAX(record_id), 0) + 1 FROM records WHERE table_id=? AND owner_id=?",
@@ -138,12 +311,14 @@ class Store:
                 "INSERT INTO records(table_id, owner_id, record_id) VALUES(?,?,?)",
                 (table_id, owner_id, record_id),
             )
-            self._db.commit()
+            self._commit()
         return record_id
 
+    def record_for_owner(self, table_id: str, owner_id: int) -> int:
+        with self._lock:
+            return self.record_id_for_owner(table_id, owner_id) or self.create_record(table_id, owner_id)
+
     def owner_for_record(self, table_id: str, record_id: int):
-        """Owner of a recordid, for a write that carries no login ticket to key on. Returns None when
-        the recordid is absent or several owners hold it, so the caller cannot misattribute the write."""
         with self._lock:
             rows = self._db.execute(
                 "SELECT owner_id FROM records WHERE table_id=? AND record_id=?",
@@ -152,18 +327,14 @@ class Store:
         return rows[0][0] if len(rows) == 1 else None
 
     def ensure_record(self, table_id: str, owner_id: int, record_id: int) -> None:
-        """Bind (table, owner, recordid), leaving an existing binding intact. A dedicated server reuses
-        the synthetic recordid SearchForRecords returns and updates it without ever calling
-        CreateRecord, so the row has to be created here instead."""
         with self._lock:
             self._db.execute(
                 "INSERT OR IGNORE INTO records(table_id, owner_id, record_id) VALUES(?,?,?)",
                 (table_id, owner_id, record_id),
             )
-            self._db.commit()
+            self._commit()
 
     def set_fields(self, table_id: str, owner_id: int, record_id: int, values: list[tuple[str, str, str]]) -> None:
-        """values = [(name, value_type, value), ...]."""
         with self._lock:
             self._db.executemany(
                 "INSERT INTO fields(table_id, owner_id, record_id, name, value_type, value) "
@@ -172,10 +343,9 @@ class Store:
                 "value_type=excluded.value_type, value=excluded.value",
                 [(table_id, owner_id, record_id, n, t, v) for (n, t, v) in values],
             )
-            self._db.commit()
+            self._commit()
 
-    def get_fields(self, table_id: str, owner_id: int, record_id: int) -> dict:
-        """Return {name: (value_type, value)} for a record."""
+    def get_fields(self, table_id: str, owner_id: int, record_id: int) -> dict[str, tuple[str, str]]:
         with self._lock:
             rows = self._db.execute(
                 "SELECT name, value_type, value FROM fields WHERE table_id=? AND owner_id=? AND record_id=?",
@@ -183,127 +353,128 @@ class Store:
             ).fetchall()
         return {name: (vtype, value) for (name, vtype, value) in rows}
 
-    # Newest SC-report FILETIME already applied to a record, which guards against a replayed report
-    # double-counting. The game never asks for this column, so it stays out of every search response.
-    _LAST_FT = "_LastReportFT"
-
-    def _record_id_or_create(self, table_id: str, owner_id: int) -> int:
-        row = self._db.execute(
-            "SELECT record_id FROM records WHERE table_id=? AND owner_id=? ORDER BY record_id LIMIT 1",
-            (table_id, owner_id),
-        ).fetchone()
-        if row:
-            return row[0]
-        record_id = self._db.execute(
-            "SELECT COALESCE(MAX(record_id), 0) + 1 FROM records WHERE table_id=? AND owner_id=?",
-            (table_id, owner_id),
-        ).fetchone()[0]
-        self._db.execute(
-            "INSERT INTO records(table_id, owner_id, record_id) VALUES(?,?,?)",
-            (table_id, owner_id, record_id),
-        )
-        return record_id
-
-    def apply_report(self, table_id: str, owner_id: int, typed_values: dict, filetime: int) -> tuple:
-        """Upsert a player's cumulative stats from one SC report block.
-
-        typed_values: {column -> (value_type, value_str)}. A report older than the last one applied is
-        ignored. Returns (record_id, applied).
-        """
+    def all_records(self, table_id: str, names: list[str]) -> list[tuple[int, int, dict]]:
         with self._lock:
-            record_id = self._record_id_or_create(table_id, owner_id)
-            prev = self._db.execute(
-                "SELECT value FROM fields WHERE table_id=? AND owner_id=? AND record_id=? AND name=?",
-                (table_id, owner_id, record_id, self._LAST_FT),
-            ).fetchone()
-            last_ft = int(prev[0]) if prev and prev[0] else 0
-            if filetime and last_ft and filetime < last_ft:
-                return record_id, False
-            rows = [(table_id, owner_id, record_id, n, t, v) for n, (t, v) in typed_values.items()]
-            rows.append((table_id, owner_id, record_id, self._LAST_FT, "int64Value", str(filetime or last_ft)))
-            self._db.executemany(
-                "INSERT INTO fields(table_id, owner_id, record_id, name, value_type, value) "
-                "VALUES(?,?,?,?,?,?) "
-                "ON CONFLICT(table_id, owner_id, record_id, name) DO UPDATE SET "
-                "value_type=excluded.value_type, value=excluded.value",
-                rows,
-            )
-            self._db.commit()
-        return record_id, True
-
-    def add_xp_delta(self, table_id: str, owner_id: int, xp_delta: int, filetime: int) -> tuple:
-        """Accumulate a per-round XP delta into a player's career Ranked_xp.
-
-        Idempotent by FILETIME: a report no newer than the last one applied to this record is ignored,
-        so a resent report cannot double-count. Returns (record_id, new_total_xp, applied).
-        """
-        with self._lock:
-            record_id = self._record_id_or_create(table_id, owner_id)
-            prev_ft = self._db.execute(
-                "SELECT value FROM fields WHERE table_id=? AND owner_id=? AND record_id=? AND name=?",
-                (table_id, owner_id, record_id, self._LAST_FT),
-            ).fetchone()
-            last_ft = int(prev_ft[0]) if prev_ft and prev_ft[0] else 0
-            cur_row = self._db.execute(
-                "SELECT value FROM fields WHERE table_id=? AND owner_id=? AND record_id=? AND name='Ranked_xp'",
-                (table_id, owner_id, record_id),
-            ).fetchone()
-            cur_xp = int(cur_row[0]) if cur_row and cur_row[0] else 0
-            if filetime and last_ft and filetime <= last_ft:
-                return record_id, cur_xp, False
-            new_xp = cur_xp + max(0, int(xp_delta))
-            # Write the total and the guard timestamp together, so the next report reads the updated
-            # Ranked_xp back as its base without the caller also having to write it.
-            self._db.executemany(
-                "INSERT INTO fields(table_id, owner_id, record_id, name, value_type, value) "
-                "VALUES(?,?,?,?,?,?) "
-                "ON CONFLICT(table_id, owner_id, record_id, name) DO UPDATE SET "
-                "value_type=excluded.value_type, value=excluded.value",
-                [
-                    (table_id, owner_id, record_id, "Ranked_xp", "intValue", str(new_xp)),
-                    (table_id, owner_id, record_id, self._LAST_FT, "int64Value", str(filetime or last_ft)),
-                ],
-            )
-            self._db.commit()
-        return record_id, new_xp, True
-
-    def search(
-        self,
-        table_id: str,
-        sort_field: str | None,
-        descending: bool,
-        offset: int,
-        limit: int,
-        owner_ids: list[int] | None,
-    ) -> list[tuple[int, int]]:
-        """Return (owner_id, record_id) pairs matching the search, ordered by a numeric sort field.
-        owner_ids restricts the search to those owners; None searches all of them, for a leaderboard."""
-        params: list = [table_id]
-        where = "r.table_id=?"
-        if owner_ids:
-            placeholders = ",".join("?" * len(owner_ids))
-            where += f" AND r.owner_id IN ({placeholders})"
-            params.extend(owner_ids)
-        if sort_field:
-            join = (
-                "LEFT JOIN fields f ON f.table_id=r.table_id AND f.owner_id=r.owner_id "
-                "AND f.record_id=r.record_id AND f.name=?"
-            )
-            params_full = [sort_field] + params
-            order = "ORDER BY CAST(COALESCE(f.value,'0') AS REAL) " + ("DESC" if descending else "ASC")
-        else:
-            join = ""
-            params_full = params
-            order = "ORDER BY r.record_id " + ("DESC" if descending else "ASC")
-        sql = (
-            f"SELECT r.owner_id, r.record_id FROM records r {join} WHERE {where} {order} "
-            f"LIMIT {int(limit)} OFFSET {int(offset)}"
-        )
-        with self._lock:
-            rows = self._db.execute(sql, params_full).fetchall()
-        return [(row[0], row[1]) for row in rows]
+            records = self._db.execute(
+                "SELECT owner_id, record_id FROM records WHERE table_id=?", (table_id,)
+            ).fetchall()
+            values: dict = {}
+            if names:
+                placeholders = ",".join("?" * len(names))
+                for owner_id, record_id, name, vtype, value in self._db.execute(
+                    f"SELECT owner_id, record_id, name, value_type, value FROM fields "
+                    f"WHERE table_id=? AND name IN ({placeholders})",
+                    [table_id, *names],
+                ):
+                    values.setdefault((owner_id, record_id), {})[name] = (vtype, value)
+        return [(o, r, values.get((o, r), {})) for o, r in records]
 
     def record_count(self, table_id: str) -> int:
         with self._lock:
             row = self._db.execute("SELECT COUNT(*) FROM records WHERE table_id=?", (table_id,)).fetchone()
         return row[0]
+
+    def add_match(self, report_sha256: str, csid: str, host_profileid: int, game_mode, report, player_count: int):
+        """Returns the new match id, or None when the same report is already stored."""
+        with self._lock:
+            try:
+                cur = self._db.execute(
+                    "INSERT INTO matches(report_sha256, received_at, csid, host_profileid, game_mode, game_mode_name, "
+                    "report_version, report_status, player_count) VALUES(?,?,?,?,?,?,?,?,?)",
+                    (
+                        report_sha256,
+                        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        csid,
+                        host_profileid,
+                        game_mode,
+                        statdefs.GAME_MODES.get(game_mode) if game_mode is not None else None,
+                        report.version,
+                        report.status,
+                        player_count,
+                    ),
+                )
+            except sqlite3.IntegrityError:
+                return None
+            self._commit()
+        return cur.lastrowid
+
+    def add_match_player(self, match_id: int, block, profileid, result=None) -> None:
+        with self._lock:
+            self._db.execute(
+                "INSERT INTO match_players VALUES(?,?,?,?,?,?,?,?)",
+                (
+                    match_id,
+                    block.index,
+                    profileid,
+                    block.connection_id.hex(),
+                    block.team,
+                    block.result,
+                    result.xp_gained if result else None,
+                    result.level if result else None,
+                ),
+            )
+            if result:
+                self._db.executemany(
+                    "INSERT OR REPLACE INTO match_stats VALUES(?,?,?,?,?)",
+                    [(match_id, block.index, k, c, v) for k, c, v in result.match_values],
+                )
+            self._commit()
+
+    def match_history(self, profileid: int) -> list[tuple]:
+        with self._lock:
+            return self._db.execute(
+                "SELECT m.match_id, m.received_at, m.game_mode_name, p.xp_gained, p.level_after "
+                "FROM match_players p JOIN matches m ON m.match_id = p.match_id "
+                "WHERE p.profileid=? ORDER BY m.match_id",
+                (profileid,),
+            ).fetchall()
+
+    def match_keys(self, profileid: int) -> list[dict]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT s.match_id, s.key, s.value FROM match_stats s JOIN match_players p "
+                "ON p.match_id = s.match_id AND p.slot = s.slot WHERE p.profileid=? ORDER BY s.match_id, s.key",
+                (profileid,),
+            ).fetchall()
+        out: dict = {}
+        for match_id, key, value in rows:
+            out.setdefault(match_id, {})[key] = value
+        return [out[m] for m in sorted(out)]
+
+    def career(self, profileid: int) -> list[tuple]:
+        with self._lock:
+            return self._db.execute(
+                "SELECT family, item_id, item_name, label, column_name, value FROM player_career "
+                "WHERE profileid=? ORDER BY family, item_id, label",
+                (profileid,),
+            ).fetchall()
+
+    def awards(self, profileid: int) -> list[tuple]:
+        with self._lock:
+            return self._db.execute(
+                "SELECT kind, award_id, name, category, times_earned, earned_date FROM player_awards "
+                "WHERE profileid=? ORDER BY kind, award_id",
+                (profileid,),
+            ).fetchall()
+
+    def replace_record_fields(self, table_id: str, owner_id: int, record_id: int, values) -> None:
+        with self.transaction():
+            self._db.execute(
+                "DELETE FROM fields WHERE table_id=? AND owner_id=? AND record_id=?", (table_id, owner_id, record_id)
+            )
+            self.set_fields(table_id, owner_id, record_id, values)
+
+
+def _item_name(s) -> str | None:
+    if s.item is None:
+        return None
+    if s.family == "badge":
+        return statdefs.BADGES.get(s.item, (f"Badge {s.item}",))[0]
+    if s.family == "feat":
+        return statdefs.FEATS.get(s.item, (f"Feat {s.item}",))[0]
+    if s.family == "gear":
+        g = statdefs.GEAR.get(s.item)
+        return f"{g[0]} ({g[1]})" if g else f"Unused gear slot {s.item}"
+    if s.family == "game_mode":
+        return statdefs.GAME_MODES.get(s.item, f"Game mode {s.item}")
+    return None
