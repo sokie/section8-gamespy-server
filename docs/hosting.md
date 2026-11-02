@@ -7,7 +7,8 @@ an internet host so that players anywhere share one leaderboard.
 
 - **Release:** run `section8-server` from the unpacked archive. It reads `config.json`, and writes
   `section8.db` and `section8_gamespy.log`, next to the executable, whatever the start directory.
-- **Source:** `python -m server [config.json]`.
+- **Source:** `python -m server`. It reads `config.json` from the working directory, or the file you name:
+  `python -m server other.json`.
 - **Docker:** see [Docker](#docker).
 
 With no config the server binds every interface and listens on TCP 8901–8906 (and 8800, a spare HTTP

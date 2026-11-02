@@ -1,8 +1,12 @@
 """Entrypoint: `python -m server [config.json]`.
 
+With no path given, the server reads config.json from the working directory when it is there. The
+executable runs from its own folder (run.py), so that is the config.json next to it.
+
 `python -m server --write-xlsp DIR [config.json]` writes the XLLN service files into DIR instead.
 """
 
+import os
 import sys
 
 from . import log, portal
@@ -38,6 +42,16 @@ def build(config):
     return titles, gpcm, router, store
 
 
+DEFAULT_CONFIG = "config.json"
+
+
+def load_config(args):
+    """Gives (config, the path it was read from, or None for the built-in defaults)."""
+    path = args[0] if args else DEFAULT_CONFIG
+    found = path if os.path.exists(path) else None
+    return Config.load(found), found
+
+
 def main(argv):
     args = list(argv[1:])
     xlsp_dir = None
@@ -45,7 +59,7 @@ def main(argv):
         i = args.index("--write-xlsp")
         xlsp_dir = args[i + 1] if i + 1 < len(args) else "xlln-xlsp"
         del args[i : i + 2]
-    config = Config.load(args[0] if args else None)
+    config, config_path = load_config(args)
 
     if xlsp_dir is not None:
         titles = Titles(config.titles, config.default_unknown_title)
@@ -55,6 +69,12 @@ def main(argv):
 
     log.configure(config.log_path)
     log.log("=== Section 8 GameSpy backend starting ===")
+    if config_path:
+        log.log(f"config {os.path.abspath(config_path)}")
+    elif args:
+        log.log(f"config {args[0]} not found; using the defaults")
+    else:
+        log.log(f"no {DEFAULT_CONFIG} in {os.getcwd()}; using the defaults")
     titles, gpcm, router, _store = build(config)
     config.resolve_ports(titles)
     for t in titles:

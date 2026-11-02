@@ -350,6 +350,31 @@ check(
     stats.rebuild_career(mig.match_keys(10000001)).get("Ranked_xp") == ("intValue", "300"),
 )
 
+print("config file:")
+from server.__main__ import load_config  # noqa: E402
+
+here = os.getcwd()
+workdir = tempfile.mkdtemp(prefix="s8_config_")
+os.chdir(workdir)
+try:
+    cfg, path = load_config([])
+    check("no config.json: built-in defaults", path is None and cfg.portal_port == 8080)
+    with open("config.json", "w", encoding="utf-8") as f:
+        f.write('{"portal_port": 9123}')
+    cfg, path = load_config([])
+    check(
+        "config.json in the working directory is read with no argument",
+        path == "config.json" and cfg.portal_port == 9123,
+    )
+    with open("other.json", "w", encoding="utf-8") as f:
+        f.write('{"portal_port": 9456}')
+    cfg, path = load_config(["other.json"])
+    check("a path given on the command line wins", path == "other.json" and cfg.portal_port == 9456)
+    cfg, path = load_config(["missing.json"])
+    check("a missing path gives the defaults", path is None and cfg.portal_port == 8080)
+finally:
+    os.chdir(here)
+
 print()
 if failures:
     print(f"{len(failures)} FAILURE(S): {failures}")
