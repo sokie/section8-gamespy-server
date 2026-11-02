@@ -67,6 +67,40 @@ jobs:
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
 
+  # Starts the server as a user does on each OS, through Python and as the built executable, and checks
+  # that it reads the config.json beside it.
+  launch:
+    name: Launch (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Start through Python
+        run: python scripts/check_launch.py
+
+      - name: Build the executable
+        run: pyinstaller section8-server.spec
+
+      - name: Start the executable from another directory
+        run: python scripts/check_launch.py "dist/section8-server${{ runner.os == 'Windows' && '.exe' || '' }}"
+
   typecheck:
     name: Type Check
     runs-on: ubuntu-latest

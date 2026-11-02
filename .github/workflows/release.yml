@@ -50,6 +50,10 @@ jobs:
       - name: Build executable
         run: pyinstaller section8-server.spec
 
+      - name: Check the executable reads the config.json beside it
+        shell: bash
+        run: python scripts/check_launch.py "dist/${{ matrix.executable_name }}"
+
       - name: Get version from tag
         id: get_version
         shell: bash

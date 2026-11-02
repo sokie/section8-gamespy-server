@@ -177,6 +177,7 @@ GET /SakeFileServer/download.aspx?fileid=<id>   -> the news file
 | `python scripts/probe_columns.py <set> <nick>` | write marker values to find which screen row a column drives |
 | `python scripts/build_stat_catalog.py <unpacked dir>` | regenerate `server/statdefs.py` and the catalogue |
 | `python scripts/check_server.py <host>` | check every service from outside |
+| `python scripts/check_launch.py [executable]` | start the server, or a built executable from another directory, and check it read the `config.json` beside it |
 | `scripts/upk.py` | read class default properties from UE3 packages |
 
 Packages unpack with `decompress.exe` from `S9Game/CookedPCFinal`. The cooked `.u` files keep their

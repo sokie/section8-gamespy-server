@@ -63,6 +63,7 @@ pip install -r requirements-dev.txt
 ruff format --check . && ruff check .
 mypy server --ignore-missing-imports
 pyinstaller section8-server.spec    # -> dist/section8-server[.exe]
+python scripts/check_launch.py dist/section8-server   # starts it and checks it reads the config.json beside it
 ```
 
 Docker image: `docker build -t section8-gamespy-server .`
