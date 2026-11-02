@@ -37,7 +37,8 @@ same layout, and XLLN redirects TCP only.
 | `news`, `motd`, `available` | News files, MOTD and vercheck, the UDP responder |
 | `persistence` | SQLite store and migrations |
 | `titles`, `xlsp` | Per-game settings, XLLN service files |
-| `portal`, `portal_data`, `portal_assets` | Stats website |
+| `portal`, `portal_data`, `portal_assets` | Stats website: routing and the JSON API, its database queries, images and drawn icons |
+| `web/` | The stats website's static pages, styles and scripts |
 | `container` | Docker entrypoint: config merge, backup on a new image, health check |
 
 ## Session flow

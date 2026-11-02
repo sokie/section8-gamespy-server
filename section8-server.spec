@@ -1,8 +1,9 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for the Section 8 GameSpy backend. Build with: pyinstaller section8-server.spec
 
-The news file is not bundled. It has to stay editable next to the executable, so the release archive
-ships news/section8_news.txt alongside and server/news.py resolves it from there.
+The stats portal's pages (server/web) are bundled. The news file is not: it has to stay editable next to the
+executable, so the release archive ships news/section8_news.txt alongside and server/news.py resolves it
+from there.
 """
 
 from pathlib import Path
@@ -13,7 +14,7 @@ a = Analysis(
     ["run.py"],
     pathex=[str(ROOT)],
     binaries=[],
-    datas=[],
+    datas=[(str(ROOT / "server" / "web"), "server/web")],
     # The server is standard library only, so nothing is loaded dynamically.
     hiddenimports=[],
     hookspath=[],

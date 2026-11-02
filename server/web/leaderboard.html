@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Leaderboard · Section 8 Stats</title>
+  <link rel="stylesheet" href="/static/portal.css">
+  <script type="module" src="/static/js/leaderboard.js"></script>
+</head>
+<body data-page="leaderboard">
+<!--#include file="header.html" -->
+<main>
+  <h1>Leaderboard</h1>
+  <p class="sub" id="leaderboard-summary">Loading&hellip;</p>
+<!--#include file="leaderboard-table.html" -->
+  <div class="pager" id="pager" hidden>
+    <a id="pager-prev" hidden>&larr; Prev</a>
+    <span class="muted" id="pager-page"></span>
+    <a id="pager-next" hidden>Next &rarr;</a>
+  </div>
+</main>
+<!--#include file="footer.html" -->
+</body>
+</html>

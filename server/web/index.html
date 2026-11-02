@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Section 8 Stats</title>
+  <link rel="stylesheet" href="/static/portal.css">
+  <script type="module" src="/static/js/overview.js"></script>
+</head>
+<body data-page="overview">
+<!--#include file="header.html" -->
+<main>
+  <div class="banner" id="banner">
+    <img class="logo" id="banner-logo" alt="" hidden>
+    <h1 id="banner-title">Section 8 Stats</h1>
+    <p class="sub">Ranked careers recorded by this server.</p>
+  </div>
+  <div class="tiles" id="summary"></div>
+
+  <h2>Top players</h2>
+<!--#include file="leaderboard-table.html" -->
+  <p><a id="full-leaderboard" href="/leaderboard">Full leaderboard &rarr;</a></p>
+
+  <h2>Servers online</h2>
+<!--#include file="servers-table.html" -->
+
+  <h2>Games</h2>
+  <div class="games" id="games"></div>
+</main>
+
+<template id="tpl-game-card">
+  <a class="game" data-field="link">
+    <div class="art" data-field="art"></div>
+    <div class="gname" data-field="name"></div>
+    <div class="muted" data-field="players"></div>
+  </a>
+</template>
+<!--#include file="footer.html" -->
+</body>
+</html>

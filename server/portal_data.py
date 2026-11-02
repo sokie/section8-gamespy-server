@@ -247,6 +247,10 @@ class PortalData:
             records = self._fields(conn, self.game.player_table, names=wanted)
         return [self._summary_row(pid, f, profiles, matches) for pid, f in records.items()]
 
+    def exists(self, pid: int) -> bool:
+        with self._conn() as conn:
+            return conn.execute("SELECT 1 FROM profiles WHERE profileid=?", (pid,)).fetchone() is not None
+
     def has_career(self, pid: int) -> bool:
         with self._conn() as conn:
             return (
@@ -265,6 +269,7 @@ class PortalData:
         return {
             "game": self.game.key,
             "sort": sort,
+            "sort_label": SORTS[sort][0],
             "total": len(rows),
             "offset": offset,
             "rows": rows[offset : offset + limit],

@@ -1,0 +1,37 @@
+<!-- The ranked players table, on the overview and the leaderboard. portal.js showLeaderboard() fills it. -->
+<div class="panel scroll" id="leaderboard">
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Player</th>
+        <th class="n">Lvl</th>
+        <th class="n"><a data-sort="xp">XP</a></th>
+        <th class="n"><a data-sort="kills">Kills</a></th>
+        <th class="n">Deaths</th>
+        <th class="n"><a data-sort="kd">K/D</a></th>
+        <th class="n"><a data-sort="time">Time</a></th>
+        <th class="n"><a data-sort="matches">Matches</a></th>
+      </tr>
+    </thead>
+    <tbody id="leaderboard-rows"></tbody>
+  </table>
+</div>
+<template id="tpl-leaderboard-row">
+  <tr>
+    <td class="pos" data-field="position"></td>
+    <td>
+      <div class="who">
+        <img class="ico-s" data-field="icon" alt="" loading="lazy">
+        <div><a data-field="name"></a><div class="rank" data-field="rank"></div></div>
+      </div>
+    </td>
+    <td class="n" data-field="level"></td>
+    <td class="n" data-field="xp"></td>
+    <td class="n" data-field="kills"></td>
+    <td class="n" data-field="deaths"></td>
+    <td class="n" data-field="kd"></td>
+    <td class="n" data-field="time"></td>
+    <td class="n" data-field="matches"></td>
+  </tr>
+</template>

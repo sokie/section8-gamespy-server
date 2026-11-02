@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Player · Section 8 Stats</title>
+  <link rel="stylesheet" href="/static/portal.css">
+  <script type="module" src="/static/js/player.js"></script>
+</head>
+<body data-page="player">
+<!--#include file="header.html" -->
+<main>
+  <div class="panel empty" id="player-missing" hidden>No such player.</div>
+
+  <section id="player" hidden>
+    <div class="hero" id="hero">
+      <img class="ico-l" id="hero-icon" alt="">
+      <div class="lvl"><span id="hero-level"></span><small>LEVEL</small></div>
+      <div>
+        <div class="cat" id="hero-game"></div>
+        <h1><span id="hero-name"></span> <span class="muted" id="hero-clan" hidden></span></h1>
+        <div class="cat" id="hero-rank"></div>
+        <div class="prog" id="hero-progress"><i id="hero-bar"></i></div>
+        <div class="muted" id="hero-xp"></div>
+        <div class="muted" id="hero-nick" hidden>GameSpy nick <code id="hero-nick-value"></code></div>
+        <div class="also" id="hero-also"></div>
+      </div>
+    </div>
+
+    <div class="panel empty spaced" id="no-career" hidden></div>
+
+    <div id="career" hidden>
+      <h2>Career</h2>
+      <div class="tiles" id="career-tiles"></div>
+
+      <div class="two" id="records-and-modes">
+        <div>
+          <h2>Best in a single life</h2>
+          <div class="panel scroll">
+            <table>
+              <thead><tr><th>Record</th><th class="n">Best</th><th class="n">Set</th></tr></thead>
+              <tbody id="records"></tbody>
+            </table>
+          </div>
+        </div>
+        <div id="modes-box">
+          <h2>Time per mode</h2>
+          <div class="panel scroll">
+            <table>
+              <thead><tr><th>Mode</th><th class="n">Time</th></tr></thead>
+              <tbody id="modes"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <h2 id="badges-title">Badges</h2>
+      <div class="grid" id="badges"></div>
+
+      <h2 id="feats-title">Feats</h2>
+      <div class="grid" id="feats"></div>
+
+      <div id="unlocks-box" hidden>
+        <h2 id="unlocks-title">Unlocks</h2>
+        <div class="grid" id="unlocks"></div>
+      </div>
+
+      <h2>Weapons &amp; gear</h2>
+      <div class="panel scroll" id="gear">
+        <table>
+          <thead><tr id="gear-head"><th>Weapon / gear</th></tr></thead>
+          <tbody id="gear-rows"></tbody>
+        </table>
+      </div>
+
+      <h2>Recent matches</h2>
+      <div class="panel scroll" id="history">
+        <table>
+          <thead>
+            <tr><th>Date (UTC)</th><th>Mode</th><th class="n">Players</th><th class="n">XP</th><th class="n">Level after</th></tr>
+          </thead>
+          <tbody id="history-rows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</main>
+
+<template id="tpl-other-career"><a data-field="link"></a></template>
+<template id="tpl-record-row">
+  <tr><td data-field="label"></td><td class="n" data-field="value"></td><td class="n" data-field="date"></td></tr>
+</template>
+<template id="tpl-mode-row">
+  <tr><td data-field="name"></td><td class="n" data-field="time"></td></tr>
+</template>
+<template id="tpl-award">
+  <div class="award">
+    <img class="ico" data-field="icon" alt="" loading="lazy">
+    <div class="body">
+      <span class="c" data-field="count"></span>
+      <div class="cat" data-field="category"></div>
+      <div class="t" data-field="name"></div>
+      <div class="d" data-field="detail"></div>
+    </div>
+  </div>
+</template>
+<template id="tpl-gear-row">
+  <tr>
+    <td><div class="who"><img class="ico-gear" data-field="icon" alt="" loading="lazy"><span data-field="weapon"></span></div></td>
+  </tr>
+</template>
+<template id="tpl-history-row">
+  <tr>
+    <td data-field="date"></td>
+    <td data-field="mode"></td>
+    <td class="n" data-field="players"></td>
+    <td class="n" data-field="xp"></td>
+    <td class="n" data-field="level"></td>
+  </tr>
+</template>
+<!--#include file="footer.html" -->
+</body>
+</html>

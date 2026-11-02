@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>JSON API · Section 8 Stats</title>
+  <link rel="stylesheet" href="/static/portal.css">
+  <script type="module" src="/static/js/plain.js"></script>
+</head>
+<body data-page="api">
+<!--#include file="header.html" -->
+<main>
+  <h1>JSON API</h1>
+  <p class="sub">Read-only, no authentication. Every page of this site is built from these endpoints. Section 8
+    (2009) has the same endpoints under <code>/api/s8/</code>.</p>
+  <div class="panel scroll">
+    <table>
+      <tbody>
+        <tr><td><a href="/api/games"><code>/api/games</code></a></td><td>The games this server keeps stats for, with their page prefix and art.</td></tr>
+        <tr><td><a href="/api/summary"><code>/api/summary</code></a></td><td>Totals: players, matches, servers online, kills, time.</td></tr>
+        <tr><td><a href="/api/leaderboard?sort=xp&amp;offset=0&amp;limit=50"><code>/api/leaderboard?sort=xp&amp;offset=0&amp;limit=50</code></a></td><td>Ranked players. <code>sort</code> is <code>xp</code>, <code>kills</code>, <code>kd</code>, <code>time</code> or <code>matches</code>; <code>limit</code> is at most 500.</td></tr>
+        <tr><td><a href="/api/players?q=a"><code>/api/players?q=name</code></a></td><td>Players whose name or GameSpy nick contains the text, or whose profileid is it. At most 50.</td></tr>
+        <tr><td><code>/api/players/&lt;profileid&gt;</code></td><td>A full career: records, time per mode, badges, feats, unlocks, gear, the last 25 matches.</td></tr>
+        <tr><td><a href="/api/servers"><code>/api/servers</code></a></td><td>Dedicated servers with their published status, and whether they are online.</td></tr>
+        <tr><td><a href="/api/s8/summary"><code>/api/s8/summary</code></a></td><td>The same for Section 8 (2009), and so on for each endpoint.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</main>
+<!--#include file="footer.html" -->
+</body>
+</html>

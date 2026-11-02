@@ -1,0 +1,18 @@
+<!-- The header of every page. portal.js points the links at the open game's pages. -->
+<header>
+  <div class="bar">
+    <a class="brand" href="/">Section <b>8</b> Stats</a>
+    <nav class="switch" id="game-switch" aria-label="Game"></nav>
+    <nav class="pages" aria-label="Pages">
+      <a href="/" data-path="/" data-page="overview">Overview</a>
+      <a href="/leaderboard" data-path="/leaderboard" data-page="leaderboard">Leaderboard</a>
+      <a href="/servers" data-path="/servers" data-page="servers">Servers</a>
+      <a href="/api" data-page="api">API</a>
+    </nav>
+    <form class="search" id="site-search" action="/players" method="get">
+      <input name="q" placeholder="Find a player" aria-label="Find a player">
+      <button>Search</button>
+    </form>
+  </div>
+</header>
+<div class="notice" id="page-error" role="alert" hidden></div>

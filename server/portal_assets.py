@@ -1,6 +1,7 @@
 """Images for the stats portal: game art, rank insignia, badge, feat, gear and unlock icons.
 
-No game art ships with the repo, and a missing image is drawn. docs/stats_portal.md lists the file names.
+No game art ships with the repo. For a missing image the API gives a /drawn/ URL instead, which the portal
+answers with a stand-in SVG from this module. docs/stats_portal.md lists the file names.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ import os
 import re
 import threading
 import time
-from urllib.parse import quote
+from urllib.parse import quote, urlencode
 
 from . import statdefs
 
@@ -218,18 +219,20 @@ def initials(name: str) -> str:
     return ("".join(w[0] for w in words[:2]) or "?").upper()
 
 
-def _svg(body: str, size: int) -> str:
-    # The page always shows the name next to the icon, so a screen reader skips the icon.
-    return (
-        f'<svg class="ico" width="{size}" height="{size}" viewBox="0 0 64 64" aria-hidden="true" '
-        f'xmlns="http://www.w3.org/2000/svg">{body}</svg>'
-    )
+def _svg(body: str) -> str:
+    return f'<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">{body}</svg>'
 
 
-def emblem(kind: str, name: str, category: str, size: int = 44) -> str:
-    """Draws a stand-in icon: a hexagon for a badge, a shield for a feat, a rounded square for an unlock."""
-    c = colour(category or kind)
-    text = initials(name)
+def drawn_url(kind: str, name: str, category: str) -> str:
+    """The URL of the stand-in icon for a badge, feat or unlock without an image."""
+    return f"/drawn/{kind}.svg?" + urlencode({"text": initials(name), "tone": category or kind})
+
+
+def emblem(kind: str, text: str, tone: str) -> str:
+    """Draws a stand-in icon: a hexagon for a badge, a shield for a feat, a rounded square for an unlock.
+    `text` is shown in it (at most 2 letters or digits), and `tone` picks its colour."""
+    c = colour(tone or kind)
+    text = re.sub(r"[^A-Z0-9]", "", str(text).upper())[:2] or "?"
     if kind == "badge":
         shape = '<path d="M32 3 57 17.5v29L32 61 7 46.5v-29z" fill="#18212c" stroke="{c}" stroke-width="3"/>'
     elif kind == "feat":
@@ -240,10 +243,10 @@ def emblem(kind: str, name: str, category: str, size: int = 44) -> str:
         f'<text x="32" y="{39 if kind != "feat" else 37}" text-anchor="middle" font-family="system-ui,sans-serif" '
         f'font-size="19" font-weight="800" fill="{c}">{text}</text>'
     )
-    return _svg(body, size)
+    return _svg(body)
 
 
-def insignia(level: int, size: int = 44) -> str:
+def insignia(level: int) -> str:
     """Draws a stand-in insignia for the rank tier: chevrons and rockers, bars, leaves or stars."""
     n, name = rank_ordinal(level)
     gold, silver, line = "#f5b229", "#cfd8dc", "#0b0f14"
@@ -314,4 +317,4 @@ def insignia(level: int, size: int = 44) -> str:
         for i in range(count):
             cx = 32 - (count - 1) * (r * 1.9) / 2 + i * r * 1.9
             parts.append(star(cx, 32, r, silver))
-    return _svg("".join(parts), size)
+    return _svg("".join(parts))

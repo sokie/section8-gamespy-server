@@ -11,10 +11,30 @@ slows the game services.
 | `/players/<profileid>` | Level, career, records, time per mode, badges, feats, weapons, the last 25 matches |
 | `/players?q=<name>` | Search by display name, nick or profileid |
 | `/servers` | Dedicated servers; offline after 5 minutes without an update |
-| `/api` | JSON: `/api/summary`, `/api/leaderboard?sort=&offset=&limit=`, `/api/players?q=`, `/api/players/<id>`, `/api/servers` |
+| `/api` | JSON: `/api/games`, `/api/summary`, `/api/leaderboard?sort=&offset=&limit=`, `/api/players?q=`, `/api/players/<id>`, `/api/servers` |
 
 Section 8 (2009) has the same pages under `/s8` and `/api/s8/`. A player of both games has one profile,
 and each career page links to the other.
+
+## How the pages work
+
+The pages are static files in [`server/web`](../server/web). The server sends each one as it is, and the
+page's script fills it from the JSON API in the browser. Nothing is built or installed: edit a file and
+reload the page.
+
+| File | Holds |
+|---|---|
+| `index.html`, `leaderboard.html`, `player.html`, `search.html`, `servers.html` | One page each: its markup, and a `<template>` for each repeated part (a table row, an award card) |
+| `api.html`, `not-found.html` | Pages with no data |
+| `partials/*.html` | Markup shared by several pages: the header, the footer, the leaderboard and servers tables. A page pulls one in with `<!--#include file="header.html" -->` |
+| `portal.css` | All styles |
+| `js/portal.js` | Shared code: the open game, the header, API calls, number and time formats, and `render()`, which fills a template |
+| `js/<page>.js` | One script per page |
+
+A script puts every value into the page as text, never as markup, and the pages run only these scripts
+(`Content-Security-Policy: script-src 'self'`). The API gives each player, badge, feat and unlock an
+`icon` URL: an image from `portal_assets/`, or a drawn stand-in from `/drawn/`.
+`python -m tests.smoke_portal --keep` serves test data on http://127.0.0.1:18080/ for trying changes.
 
 ## Settings
 

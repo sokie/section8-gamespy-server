@@ -1,0 +1,26 @@
+<!-- The dedicated servers table, on the overview (compact) and the servers page. portal.js showServers() fills it. -->
+<div class="panel scroll" id="servers">
+  <table>
+    <thead>
+      <tr>
+        <th>Status</th>
+        <th>Host account</th>
+        <th>Mode</th>
+        <th class="n">Max humans</th>
+        <th class="n">Updated</th>
+        <th class="full">Published status</th>
+      </tr>
+    </thead>
+    <tbody id="servers-rows"></tbody>
+  </table>
+</div>
+<template id="tpl-server-row">
+  <tr>
+    <td><span class="pill" data-field="status"></span> <span class="pill ranked" data-field="ranked">RANKED</span></td>
+    <td><a data-field="host"></a></td>
+    <td data-field="mode"></td>
+    <td class="n" data-field="max_humans"></td>
+    <td class="n" data-field="updated"></td>
+    <td class="full muted" data-field="fields"></td>
+  </tr>
+</template>

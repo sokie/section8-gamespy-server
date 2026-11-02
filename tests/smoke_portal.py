@@ -1,12 +1,19 @@
-"""Seeds a database from ATLAS report fixtures and checks every portal page and API endpoint over HTTP.
+"""Seeds a database from ATLAS report fixtures and checks the portal's JSON API, pages and files over HTTP.
+
+The pages are static files that fill themselves from the API in the browser. Without a browser, this checks
+that each page and script is served, that every element id a script uses exists in its page, and that no
+script writes markup.
 
 python -m tests.smoke_portal [--keep]     --keep leaves the portal running on port 18080
 """
 
 import json
 import os
+import re
 import shutil
+import sqlite3
 import struct
+import subprocess
 import sys
 import tempfile
 import time
@@ -21,6 +28,7 @@ from server.portal_data import PortalData, games_for, set_display_name
 from server.titles import Titles
 
 FIXTURES = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+WEB = portal.WEB_DIR
 failures = 0
 
 
@@ -56,7 +64,6 @@ def seed(path):
     comp.ingest_report(with_minted_ccid(fixture("report_1p_handles.bin"), [10000001]), csid="p1")
     comp.ingest_report(fixture("report_2p_ccid.bin"), csid="p2")
     comp.ingest_report(fixture("report_1p_ccid_badges.bin"), csid="p3")
-    import sqlite3
 
     conn = sqlite3.connect(path)  # What the stats migration leaves for a carried-over career.
     cur = conn.execute(
@@ -79,7 +86,7 @@ def seed(path):
     st.set_fields(
         "s8:ServerStatus_v5", 10000003, rid8, [("Status_Ranked", "byte", "1"), ("Status_MaxHumans", "byte", "32")]
     )
-    set_display_name(path, "10000001", "Leon <b>")  # Markup in a name must come out escaped.
+    set_display_name(path, "10000001", "Leon <b>")  # The API gives names as they are; the pages show them as text.
     rid = st.create_record("ServerStatusTG09_v6", 10000003)
     st.set_fields(
         "ServerStatusTG09_v6", 10000003, rid, [("Status_GameMode", "int", "1"), ("Status_MaxHumans", "int", "16")]
@@ -131,67 +138,74 @@ def make_assets(root):
 
 
 def get(port, path):
+    """Gives (status, headers, body text)."""
     try:
         with urllib.request.urlopen(f"http://127.0.0.1:{port}{path}", timeout=5) as r:
-            return r.status, r.headers.get("Content-Type", ""), r.read().decode("utf-8", "replace")
+            return r.status, r.headers, r.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as e:
-        return e.code, e.headers.get("Content-Type", ""), e.read().decode("utf-8", "replace")
+        return e.code, e.headers, e.read().decode("utf-8", "replace")
 
 
-def main():
-    log.configure(os.path.join(tempfile.gettempdir(), "s8_portal_test.log"))
-    db = os.path.join(tempfile.gettempdir(), "s8_portal.db")
-    seed(db)
-    port = 18080
-    assets = os.path.join(tempfile.gettempdir(), "s8_portal_assets")
-    make_assets(assets)
-    games = games_for(Titles())
-    httpd = portal.start(db, "127.0.0.1", port, games, assets)
-    check("portal starts", httpd is not None)
-    check("a taken port is skipped, not fatal", portal.start(db, "127.0.0.1", port, games) is None)
+def get_json(port, path):
+    return json.loads(get(port, path)[2])
 
-    def fresh():
-        for d in httpd.RequestHandlerClass.portal.data.values():
-            d._cache.clear()
 
+def ctype(port, path):
+    return get(port, path)[1].get("Content-Type", "")
+
+
+def check_api(port, db, games):
     print("api:")
-    s = json.loads(get(port, "/api/summary")[2])
+    s = get_json(port, "/api/summary")
     check("summary counts 2 players and 3 matches", (s["players"], s["matches"]) == (2, 3))
     check("summary sees the live server", s["servers_online"] == 1)
     check("summary sums kills", s["total_kills"] == 22)
-    lb = json.loads(get(port, "/api/leaderboard?sort=kills")[2])
+    lb = get_json(port, "/api/leaderboard?sort=kills")
     check(
         "leaderboard sorted by kills",
         [r["kills"] for r in lb["rows"]] == sorted((r["kills"] for r in lb["rows"]), reverse=True),
     )
-    check("leaderboard uses the display name", lb["rows"][0]["name"] == "Leon <b>")
+    check("leaderboard names its sort", lb["sort_label"] == "Kills")
+    check("leaderboard uses the display name as it is", lb["rows"][0]["name"] == "Leon <b>")
     check("leaderboard positions", [r["position"] for r in lb["rows"]] == [1, 2])
-    check("bad sort falls back to xp", json.loads(get(port, "/api/leaderboard?sort=zzz&limit=abc")[2])["sort"] == "xp")
-    p = json.loads(get(port, "/api/players/10000001")[2])
+    check("leaderboard rows carry a rank icon", all(r["icon"] for r in lb["rows"]))
+    check("bad sort falls back to xp", get_json(port, "/api/leaderboard?sort=zzz&limit=abc")["sort"] == "xp")
+    p = get_json(port, "/api/players/10000001")
     check("player career", (p["kills"], p["matches"]) == (20, 3))
     check("player keeps the GameSpy nick", p["uniquenick"] == "T8iPHostNick")
     check("player badge earned", any(b["name"] == "Infantry Assault" and b["count"] == 1 for b in p["badges"]))
     check("player gear listed", any(g["Kills"] > 0 for g in p["gear"]))
     check("player history", len(p["history"]) == 3)
     check("level progress bounds", p["level_floor"] <= p["xp"] < (p["level_next"] or 10**9))
-    friend = json.loads(get(port, "/api/players/10000002")[2])
+    check(
+        "player links to the Section 8 career",
+        [c["url"] for c in p["other_careers"]] == ["/s8/players/10000001"],
+    )
+    friend = get_json(port, "/api/players/10000002")
     check("carried-over XP is not counted as a match", friend["matches"] == 1)
     check("but is shown in the history", any(h["carried_over"] for h in friend["history"]))
     check("unknown player is a 404", get(port, "/api/players/99")[0] == 404)
     check(
         "search by display name",
-        [x["profileid"] for x in json.loads(get(port, "/api/players?q=leon")[2])] == [10000001],
+        [x["profileid"] for x in get_json(port, "/api/players?q=leon")] == [10000001],
     )
     check(
         "search by GameSpy nick",
-        [x["profileid"] for x in json.loads(get(port, "/api/players?q=t8iphost")[2])] == [10000001],
+        [x["profileid"] for x in get_json(port, "/api/players?q=t8iphost")] == [10000001],
     )
-    srv = json.loads(get(port, "/api/servers")[2])
+    srv = get_json(port, "/api/servers")
     check(
         "server online with its mode",
         srv and srv[0]["online"] and srv[0]["mode"] == "Conquest" and srv[0]["max_humans"] == 16,
     )
-    check("unknown api is a JSON 404", get(port, "/api/nope")[:2] == (404, "application/json; charset=utf-8"))
+    status, headers, _ = get(port, "/api/nope")
+    check("unknown api is a JSON 404", (status, headers["Content-Type"]) == (404, "application/json; charset=utf-8"))
+    g = get_json(port, "/api/games")
+    check(
+        "games lists both, with their page prefixes",
+        [(x["key"], x["prefix"]) for x in g] == [("prejudice", ""), ("section8", "/s8")],
+    )
+    check("games count their players", [x["players"] for x in g] == [2, 1])
 
     named = PortalData(db, {"t8ipfriendnick": "StoneCold"}, games[0]).player(10000002)
     check("config portal_names names a player by nick, case-insensitive", named["name"] == "StoneCold")
@@ -210,99 +224,177 @@ def main():
         check("naming refuses a missing database", not os.path.exists(missing))
 
     print("section 8 (2009):")
-    s8s = json.loads(get(port, "/api/s8/summary")[2])
+    s8s = get_json(port, "/api/s8/summary")
     check(
         "Section 8 has its own players and matches", (s8s["game"], s8s["players"], s8s["matches"]) == ("section8", 1, 1)
     )
-    p8 = json.loads(get(port, "/api/s8/players/10000001")[2])
+    p8 = get_json(port, "/api/s8/players/10000001")
     check("Section 8 career read from s8:PlayerStats_v5", p8["has_stats"] and p8["kills"] == 9 and p8["xp"] == 43)
     check(
         "Section 8 badge names",
         any(b["name"] == "Specialist" and b["count"] == 1 for b in p8["badges"]) and len(p8["badges"]) == 32,
     )
     check("Section 8 has 16 feats and no per-mode time", len(p8["feats"]) == 16 and p8["modes"] == [])
-    check(
-        "Prejudice career untouched by the Section 8 match",
-        json.loads(get(port, "/api/players/10000001")[2])["kills"] == 20,
-    )
+    check("Section 8 links back to Prejudice", [c["url"] for c in p8["other_careers"]] == ["/players/10000001"])
+    check("Section 8 has no unlocks list", p8["unlocks"] == [])
+    check("Prejudice career untouched by the Section 8 match", get_json(port, "/api/players/10000001")["kills"] == 20)
     check(
         "Section 8 level linked into Prejudice",
-        json.loads(get(port, "/api/players/10000001")[2])["section8_level"] == p8["level"],
+        get_json(port, "/api/players/10000001")["section8_level"] == p8["level"],
     )
-    srv8 = json.loads(get(port, "/api/s8/servers")[2])
+    srv8 = get_json(port, "/api/s8/servers")
     check(
         "Section 8 servers from s8:ServerStatus_v5",
         srv8 and srv8[0]["ranked"] and srv8[0]["max_humans"] == 32 and srv8[0]["mode"] == "Conquest",
     )
-    for path in ("/s8", "/s8/leaderboard", "/s8/servers", "/s8/players?q=leon", "/s8/players/10000001"):
-        status, ctype, body = get(port, path)
-        check(f"{path} renders", status == 200 and "</html>" in body)
-    page8 = get(port, "/s8/players/10000001")[2]
-    check("Section 8 profile links to the Prejudice career", 'href="/players/10000001"' in page8)
-    check("and Prejudice's links back", 'href="/s8/players/10000001"' in get(port, "/players/10000001")[2])
-    check(
-        "a player with no Section 8 career says so",
-        "No ranked Section 8 career yet" in get(port, "/s8/players/10000002")[2],
-    )
-    check("the API index lists both games", "/api/s8/summary" in get(port, "/api")[2])
+    check("a player with no Section 8 career has no stats", not get_json(port, "/api/s8/players/10000002")["has_stats"])
 
+
+def check_pages(port):
     print("pages:")
+    pages = {
+        "/": "overview",
+        "/leaderboard?sort=kd": "leaderboard",
+        "/leaderboard?page=%C2%B2": "leaderboard",
+        "/servers": "servers",
+        "/players?q=friend": "search",
+        "/players/10000001": "player",
+        "/api": "plain",
+        "/s8": "overview",
+        "/s8/leaderboard": "leaderboard",
+        "/s8/servers": "servers",
+        "/s8/players?q=leon": "search",
+        "/s8/players/10000002": "player",
+        "/api/s8": "plain",
+    }
+    for path, script in pages.items():
+        status, headers, body = get(port, path)
+        check(
+            f"{path} serves the {script} page",
+            status == 200
+            and headers["Content-Type"].startswith("text/html")
+            and f'<script type="module" src="/static/js/{script}.js">' in body
+            and "<!--#include" not in body
+            and "Leon" not in body,
+        )
+    status, headers, body = get(port, "/")
+    check("pages allow only their own scripts and styles", "script-src 'self'" in headers["Content-Security-Policy"])
+    check("missing player is the not-found page with a 404", get(port, "/players/123")[0] == 404)
+    check("unknown page is a 404", get(port, "/x")[0] == 404 and "Not found" in get(port, "/x")[2])
+
+    print("static files:")
+    check("stylesheet", ctype(port, "/static/portal.css") == "text/css; charset=utf-8")
+    check(
+        "scripts",
+        all(ctype(port, f"/static/js/{s}.js") == "text/javascript; charset=utf-8" for s in set(pages.values())),
+    )
     for path in (
-        "/",
-        "/leaderboard",
-        "/leaderboard?sort=kd",
-        "/leaderboard?page=%C2%B2",
-        "/servers",
-        "/players?q=friend",
-        "/players/10000001",
-        "/api",
+        "/static/index.html",
+        "/static/partials/header.html",
+        "/static/../portal.py",
+        "/static/..%2Fportal.py",
+        "/static/js/nope.js",
     ):
-        status, ctype, body = get(port, path)
-        check(f"{path} renders", status == 200 and ctype.startswith("text/html") and "</html>" in body)
-    home = get(port, "/")[2]
-    check("names are escaped", "Leon &lt;b&gt;" in home and "Leon <b>" not in home)
-    prof = get(port, "/players/10000001")[2]
-    check("profile shows badges and feats", "Infantry Assault" in prof and "Assault Rifle Killer" in prof)
-    check("profile shows the GameSpy nick under the display name", "T8iPHostNick" in prof)
-    check("missing page is 404", get(port, "/players/123")[0] == 404 and get(port, "/x")[0] == 404)
-    check("search with markup is escaped", "&lt;script&gt;" in get(port, "/players?q=<script>")[2])
+        check(f"{path} is not served", get(port, path)[0] == 404)
 
-    print("freshness:")
-    import sqlite3
+    print("drawn icons:")
+    status, headers, body = get(port, "/drawn/rank.svg?level=50")
+    check("rank insignia", status == 200 and headers["Content-Type"] == "image/svg+xml" and body.startswith("<svg"))
+    body = get(port, "/drawn/badge.svg?text=%3Cscript%3E&tone=x")[2]
+    check("badge text is reduced to two letters", "<script" not in body and ">SC</text>" in body)
+    check("unknown icon kind is a 404", get(port, "/drawn/nope.svg")[0] == 404)
 
-    conn = sqlite3.connect(db)
-    conn.execute("UPDATE record_times SET updated_at=? WHERE table_id='ServerStatusTG09_v6'", (time.time() - 3600,))
-    conn.commit()
-    conn.close()
-    fresh()
-    check("a server silent for an hour shows offline", not json.loads(get(port, "/api/servers")[2])[0]["online"])
 
-    print("database written by an older server (no portal tables):")
-    conn = sqlite3.connect(db)
-    conn.execute("DROP TABLE portal_names")
-    conn.execute("DROP TABLE record_times")
-    conn.commit()
-    conn.close()
-    fresh()
-    check("pages still render", all(get(port, x)[0] == 200 for x in ("/", "/servers", "/players/10000001")))
-    check("names fall back to the nick", json.loads(get(port, "/api/players/10000001")[2])["name"] == "T8iPHostNick")
+def check_page_sources():
+    """Checks the files in server/web without a browser."""
+    print("page sources:")
+
+    def ids_in_js(text):
+        return set(re.findall(r'\$\(\s*["]([\w-]+)["]\s*\)', text)) | set(re.findall(r'render\(\s*"([\w-]+)"', text))
+
+    def ids_in_html(text):
+        return set(re.findall(r'\bid="([\w-]+)"', text))
+
+    def read(*parts):
+        with open(os.path.join(WEB, *parts), encoding="utf-8") as f:
+            return f.read()
+
+    shared = set()
+    for name in os.listdir(os.path.join(WEB, "partials")):
+        shared |= ids_in_html(read("partials", name))
+    missing = ids_in_js(read("js", "portal.js")) - shared
+    check("every id portal.js uses is in a shared partial", not missing or print("    missing:", missing))
+
+    for name in sorted(n for n in os.listdir(WEB) if n.endswith(".html")):
+        html = portal.read_page(name)
+        script = re.search(r'<script type="module" src="/static/js/([\w-]+)\.js">', html).group(1)
+        missing = ids_in_js(read("js", f"{script}.js")) - ids_in_html(html)
+        check(f"{name}: every id {script}.js uses is in the page", not missing or print("    missing:", missing))
+        check(f"{name}: has the shared header and footer", {"page-error", "footer-game"} <= ids_in_html(html))
+
+    scripts = {n: read("js", n) for n in os.listdir(os.path.join(WEB, "js"))}
+    markup = [
+        n for n, text in scripts.items() if re.search(r"innerHTML|outerHTML|insertAdjacentHTML|document\.write", text)
+    ]
+    check("no script writes markup", not markup or print("    in:", markup))
+    if shutil.which("node"):
+        bad = []
+        with tempfile.TemporaryDirectory() as tmp:
+            for n, text in scripts.items():
+                # Any Node version reads a .mjs file as a module, which these scripts are.
+                path = os.path.join(tmp, n.replace(".js", ".mjs"))
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write(text)
+                if subprocess.run(["node", "--check", path], capture_output=True).returncode:
+                    bad.append(n)
+        check("every script parses (node --check)", not bad or print("    in:", bad))
+
+
+def main():
+    log.configure(os.path.join(tempfile.gettempdir(), "s8_portal_test.log"))
+    db = os.path.join(tempfile.gettempdir(), "s8_portal.db")
+    seed(db)
+    port = 18080
+    assets = os.path.join(tempfile.gettempdir(), "s8_portal_assets")
+    make_assets(assets)
+    games = games_for(Titles())
+    httpd = portal.start(db, "127.0.0.1", port, games, assets)
+    check("portal starts", httpd is not None)
+    check("a taken port is skipped, not fatal", portal.start(db, "127.0.0.1", port, games) is None)
+    portal_obj = httpd.RequestHandlerClass.portal
+
+    def fresh():
+        for d in portal_obj.data.values():
+            d._cache.clear()
+
+    check_api(port, db, games)
+    check_pages(port)
+    check_page_sources()
 
     print("images:")
-    home = get(port, "/")[2]
-    check("game banner used on the home page", "/assets/games/Prejudice.png" in home)
-    check("rank image from mapping.json", "/assets/exported/T_Rank_01.png" in home)
-    prof = get(port, "/players/10000001")[2]
-    check("badge image by name", "/assets/badges/infantry-assault.png" in prof)
-    check("feat image by id", "/assets/feats/F8.png" in prof)
-    check("gear image by weapon", "/assets/gear/assault-rifle.png" in prof)
-    check("missing images are drawn", prof.count("<svg") > 50)
+    rows = get_json(port, "/api/leaderboard")["rows"]
+    check("rank image from mapping.json", "/assets/exported/T_Rank_01.png" in [r["icon"] for r in rows])
+    p = get_json(port, "/api/players/10000001")
+    badge = {b["name"]: b["icon"] for b in p["badges"]}
+    check("badge image by name", badge["Infantry Assault"] == "/assets/badges/infantry-assault.png")
     check(
-        "unlocks listed, lit by level (Aegis Armor by the Section 8 level)",
-        "Unlocks &middot; 2 of 3" in prof and "Test Rifle" in prof,
+        "a badge without an image is drawn",
+        all(u.startswith(("/assets/", "/drawn/badge.svg?text=")) for u in badge.values()),
     )
-    status, ctype, _ = get(port, "/assets/badges/infantry-assault.png")
-    check("image served as png", status == 200 and ctype == "image/png")
-    check("a mapping that leaves the folder is ignored", "outside.png" not in get(port, "/players/10000002")[2])
+    check("feat image by id", {f["id"]: f["icon"] for f in p["feats"]}[8] == "/assets/feats/F8.png")
+    check("gear image by weapon", "/assets/gear/assault-rifle.png" in [g["icon"] for g in p["gear"]])
+    check("game banner", get_json(port, "/api/games")[0]["banner"] == "/assets/games/Prejudice.png")
+    unlocks = {u["name"]: u["unlocked"] for u in p["unlocks"]}
+    check(
+        "unlocks listed and lit by level (Aegis Armor by the Section 8 level); a broken entry is skipped",
+        unlocks == {"Test Rifle": True, "Late Gadget": False, "Aegis Armor": True},
+    )
+    status, headers, _ = get(port, "/assets/badges/infantry-assault.png")
+    check("image served as png", status == 200 and headers["Content-Type"] == "image/png")
+    check(
+        "a mapping that leaves the folder is ignored",
+        "outside.png" not in json.dumps(get_json(port, "/api/players/10000002")),
+    )
     check(
         "path traversal refused",
         get(port, "/assets/..%2Foutside.png")[0] == 404 and get(port, "/assets/../outside.png")[0] == 404,
@@ -311,12 +403,34 @@ def main():
         "non-image files are not served",
         get(port, "/assets/evil.svg")[0] == 404 and get(port, "/assets/mapping.json")[0] == 404,
     )
-    shutil.rmtree(assets)
-    portal_obj = httpd.RequestHandlerClass.portal
-    portal_obj.assets._scanned = 0
+
+    print("freshness:")
+    conn = sqlite3.connect(db)
+    conn.execute("UPDATE record_times SET updated_at=? WHERE table_id='ServerStatusTG09_v6'", (time.time() - 3600,))
+    conn.commit()
+    conn.close()
+    fresh()
+    check("a server silent for an hour shows offline", not get_json(port, "/api/servers")[0]["online"])
+
+    print("database written by an older server (no portal tables):")
+    conn = sqlite3.connect(db)
+    conn.execute("DROP TABLE portal_names")
+    conn.execute("DROP TABLE record_times")
+    conn.commit()
+    conn.close()
+    fresh()
     check(
-        "no images at all still renders",
-        get(port, "/players/10000001")[0] == 200 and "<img" not in get(port, "/players/10000001")[2],
+        "the API still answers",
+        all(get(port, x)[0] == 200 for x in ("/api/summary", "/api/servers", "/api/players/10000001")),
+    )
+    check("names fall back to the nick", get_json(port, "/api/players/10000001")["name"] == "T8iPHostNick")
+
+    shutil.rmtree(assets)
+    portal_obj.assets._scanned = 0
+    p = get_json(port, "/api/players/10000001")
+    check(
+        "with no images at all, every icon is drawn",
+        "/assets/" not in json.dumps(p) and p["icon"].startswith("/drawn/rank.svg"),
     )
 
     if "--keep" in sys.argv:
