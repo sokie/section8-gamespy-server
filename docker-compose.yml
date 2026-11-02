@@ -1,0 +1,53 @@
+# Section 8 GameSpy backend on a Docker host with Traefik (the Hostinger "Docker and Traefik" VPS template).
+# docs/hosting.md explains each part. Set PORTAL_HOST in .env to the portal's domain.
+#
+# section8    the server. The game ports are published directly. The portal goes through Traefik on 443.
+# watchtower  pulls :latest every 5 minutes and recreates `section8` when the image changed. The scope
+#             keeps it away from every other container on the host.
+
+services:
+  section8:
+    image: ghcr.io/sokie/section8-gamespy-server:latest
+    restart: unless-stopped
+    ports:
+      - "8901-8906:8901-8906/tcp"
+      - "27900:27900/udp"
+    volumes:
+      - section8-data:/data
+    labels:
+      - com.centurylinklabs.watchtower.enable=true
+      - com.centurylinklabs.watchtower.scope=section8
+      - traefik.enable=true
+      - traefik.http.routers.section8-portal.rule=Host(`${PORTAL_HOST:-section8.localhost}`)
+      - traefik.http.routers.section8-portal.entrypoints=websecure
+      - traefik.http.routers.section8-portal.tls.certresolver=letsencrypt
+      - traefik.http.services.section8-portal.loadbalancer.server.port=8080
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  watchtower:
+    # Pinned by digest: Watchtower holds the Docker socket, so it changes only when this line does. It
+    # watches only label-enabled containers, so it never updates itself.
+    image: nickfedor/watchtower:1.23.2@sha256:62fb91130ddb493f869cad7e198fa260dd16c5da293ed092cbd5d8781566f7a6
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      WATCHTOWER_SCOPE: section8
+      WATCHTOWER_LABEL_ENABLE: "true"
+      WATCHTOWER_POLL_INTERVAL: "300"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_TIMEOUT: 30s
+    labels:
+      - com.centurylinklabs.watchtower.scope=section8
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  section8-data:

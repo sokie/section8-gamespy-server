@@ -1,0 +1,35 @@
+{
+  "titleId": "0x544707D4",
+  "services": [
+    {
+      "service": "gamespy-gpsp",
+      "port": 8901,
+      "endpoint": "127.0.0.1:8901"
+    },
+    {
+      "service": "gamespy-gpcm",
+      "port": 8902,
+      "endpoint": "127.0.0.1:8902"
+    },
+    {
+      "service": "gamespy-auth",
+      "port": 8903,
+      "endpoint": "127.0.0.1:8903"
+    },
+    {
+      "service": "gamespy-competition",
+      "port": 8904,
+      "endpoint": "127.0.0.1:8904"
+    },
+    {
+      "service": "gamespy-sake",
+      "port": 8905,
+      "endpoint": "127.0.0.1:8905"
+    },
+    {
+      "service": "gamespy-motd",
+      "port": 8906,
+      "endpoint": "127.0.0.1:8906"
+    }
+  ]
+}

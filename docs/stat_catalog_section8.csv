@@ -1,0 +1,341 @@
+key,property,column,fold,family,id,name,stat,read_by_game
+1,0,Ranked_Kills,sum,career,,,Kills,yes
+2,1,Ranked_Deaths,sum,career,,,Deaths,yes
+3,5,Ranked_KillsIAL,max,career,,,Kills in a life,yes
+4,6,Ranked_CapturesIAL,max,career,,,Captures in a life,yes
+5,100,Ranked_Kills_Date,date,career,,,"Kills, date",yes
+6,101,Ranked_Deaths_Date,date,career,,,"Deaths, date",yes
+7,105,Ranked_KillsIAL_Date,date,career,,,"Kills in a life, date",yes
+8,106,Ranked_CapturesIAL_Date,date,career,,,"Captures in a life, date",yes
+9,4,Ranked_Destruction,sum,career,,,Destructions,yes
+10,7,Ranked_TimePlayed,sum,career,,,Time played (s),yes
+11,3,Ranked_XP,sum,career,,,XP,yes
+12,2,Ranked_Level,replace,career,,,Level,yes
+13,8,Ranked_XPIAL,max,career,,,XP in a life,yes
+14,9,Ranked_ScoreTeamworkIAL,max,career,,,Teamwork score in a life,yes
+15,10,Ranked_ScoreCombatIAL,max,career,,,Combat score in a life,yes
+16,11,Ranked_DamageIAL,max,career,,,Damage in a life,yes
+17,12,Ranked_RepairIAL,max,career,,,Repairs in a life,yes
+18,13,Ranked_AssistIAL,max,career,,,Assists in a life,yes
+19,14,Ranked_DefenseIAL,max,career,,,Defenses in a life,yes
+20,15,Ranked_DestructionIAL,max,career,,,Destructions in a life,yes
+21,104,Ranked_Destruction_Date,date,career,,,"Destructions, date",yes
+22,107,Ranked_TimePlayed_Date,date,career,,,"Time played, date",yes
+23,103,Ranked_XP_Date,date,career,,,"XP, date",yes
+24,102,Ranked_Level_Date,date,career,,,"Level, date",yes
+25,108,Ranked_XPIAL_Date,date,career,,,"XP in a life, date",yes
+26,109,Ranked_ScoreTeamworkIAL_Date,date,career,,,"Teamwork score in a life, date",yes
+27,110,Ranked_ScoreCombatIAL_Date,date,career,,,"Combat score in a life, date",yes
+28,111,Ranked_DamageIAL_Date,date,career,,,"Damage in a life, date",yes
+29,112,Ranked_RepairIAL_Date,date,career,,,"Repairs in a life, date",yes
+30,113,Ranked_AssistIAL_Date,date,career,,,"Assists in a life, date",yes
+31,114,Ranked_DefenseIAL_Date,date,career,,,"Defenses in a life, date",yes
+32,115,Ranked_DestructionIAL_Date,date,career,,,"Destructions in a life, date",yes
+200,500,Ranked_Kills_G0,sum,gear,0,Knife,Knife: Kills,yes
+201,501,Ranked_TimePlayed_G0,sum,gear,0,Knife,Knife: Time played (s),yes
+202,502,Ranked_KillsIAL_G0,max,gear,0,Knife,Knife: Kills in a life,yes
+203,503,Ranked_DamageIAL_G0,max,gear,0,Knife,Knife: Damage in a life,yes
+204,504,Ranked_DestructionIAL_G0,max,gear,0,Knife,Knife: Destructions in a life,yes
+205,505,Ranked_Kills_Date_G0,date,gear,0,Knife,"Knife: Kills, date",yes
+206,506,Ranked_TimePlayed_Date_G0,date,gear,0,Knife,"Knife: Time played, date",yes
+207,507,Ranked_KillsIAL_Date_G0,date,gear,0,Knife,"Knife: Kills in a life, date",yes
+208,508,Ranked_DamageIAL_Date_G0,date,gear,0,Knife,"Knife: Damage in a life, date",yes
+209,509,Ranked_DestructionIAL_Date_G0,date,gear,0,Knife,"Knife: Destructions in a life, date",yes
+210,510,Ranked_Kills_G1,sum,gear,1,Assault Rifle,Assault Rifle: Kills,yes
+211,511,Ranked_TimePlayed_G1,sum,gear,1,Assault Rifle,Assault Rifle: Time played (s),yes
+212,512,Ranked_KillsIAL_G1,max,gear,1,Assault Rifle,Assault Rifle: Kills in a life,yes
+213,513,Ranked_DamageIAL_G1,max,gear,1,Assault Rifle,Assault Rifle: Damage in a life,yes
+214,514,Ranked_DestructionIAL_G1,max,gear,1,Assault Rifle,Assault Rifle: Destructions in a life,yes
+215,515,Ranked_Kills_Date_G1,date,gear,1,Assault Rifle,"Assault Rifle: Kills, date",yes
+216,516,Ranked_TimePlayed_Date_G1,date,gear,1,Assault Rifle,"Assault Rifle: Time played, date",yes
+217,517,Ranked_KillsIAL_Date_G1,date,gear,1,Assault Rifle,"Assault Rifle: Kills in a life, date",yes
+218,518,Ranked_DamageIAL_Date_G1,date,gear,1,Assault Rifle,"Assault Rifle: Damage in a life, date",yes
+219,519,Ranked_DestructionIAL_Date_G1,date,gear,1,Assault Rifle,"Assault Rifle: Destructions in a life, date",yes
+220,520,Ranked_Kills_G2,sum,gear,2,Machine Gun,Machine Gun: Kills,yes
+221,521,Ranked_TimePlayed_G2,sum,gear,2,Machine Gun,Machine Gun: Time played (s),yes
+222,522,Ranked_KillsIAL_G2,max,gear,2,Machine Gun,Machine Gun: Kills in a life,yes
+223,523,Ranked_DamageIAL_G2,max,gear,2,Machine Gun,Machine Gun: Damage in a life,yes
+224,524,Ranked_DestructionIAL_G2,max,gear,2,Machine Gun,Machine Gun: Destructions in a life,yes
+225,525,Ranked_Kills_Date_G2,date,gear,2,Machine Gun,"Machine Gun: Kills, date",yes
+226,526,Ranked_TimePlayed_Date_G2,date,gear,2,Machine Gun,"Machine Gun: Time played, date",yes
+227,527,Ranked_KillsIAL_Date_G2,date,gear,2,Machine Gun,"Machine Gun: Kills in a life, date",yes
+228,528,Ranked_DamageIAL_Date_G2,date,gear,2,Machine Gun,"Machine Gun: Damage in a life, date",yes
+229,529,Ranked_DestructionIAL_Date_G2,date,gear,2,Machine Gun,"Machine Gun: Destructions in a life, date",yes
+230,530,Ranked_Kills_G3,sum,gear,3,Sniper Rifle,Sniper Rifle: Kills,yes
+231,531,Ranked_TimePlayed_G3,sum,gear,3,Sniper Rifle,Sniper Rifle: Time played (s),yes
+232,532,Ranked_KillsIAL_G3,max,gear,3,Sniper Rifle,Sniper Rifle: Kills in a life,yes
+233,533,Ranked_DamageIAL_G3,max,gear,3,Sniper Rifle,Sniper Rifle: Damage in a life,yes
+234,534,Ranked_DestructionIAL_G3,max,gear,3,Sniper Rifle,Sniper Rifle: Destructions in a life,yes
+235,535,Ranked_Kills_Date_G3,date,gear,3,Sniper Rifle,"Sniper Rifle: Kills, date",yes
+236,536,Ranked_TimePlayed_Date_G3,date,gear,3,Sniper Rifle,"Sniper Rifle: Time played, date",yes
+237,537,Ranked_KillsIAL_Date_G3,date,gear,3,Sniper Rifle,"Sniper Rifle: Kills in a life, date",yes
+238,538,Ranked_DamageIAL_Date_G3,date,gear,3,Sniper Rifle,"Sniper Rifle: Damage in a life, date",yes
+239,539,Ranked_DestructionIAL_Date_G3,date,gear,3,Sniper Rifle,"Sniper Rifle: Destructions in a life, date",yes
+240,540,Ranked_Kills_G4,sum,gear,4,Missile Launcher,Missile Launcher: Kills,yes
+241,541,Ranked_TimePlayed_G4,sum,gear,4,Missile Launcher,Missile Launcher: Time played (s),yes
+242,542,Ranked_KillsIAL_G4,max,gear,4,Missile Launcher,Missile Launcher: Kills in a life,yes
+243,543,Ranked_DamageIAL_G4,max,gear,4,Missile Launcher,Missile Launcher: Damage in a life,yes
+244,544,Ranked_DestructionIAL_G4,max,gear,4,Missile Launcher,Missile Launcher: Destructions in a life,yes
+245,545,Ranked_Kills_Date_G4,date,gear,4,Missile Launcher,"Missile Launcher: Kills, date",yes
+246,546,Ranked_TimePlayed_Date_G4,date,gear,4,Missile Launcher,"Missile Launcher: Time played, date",yes
+247,547,Ranked_KillsIAL_Date_G4,date,gear,4,Missile Launcher,"Missile Launcher: Kills in a life, date",yes
+248,548,Ranked_DamageIAL_Date_G4,date,gear,4,Missile Launcher,"Missile Launcher: Damage in a life, date",yes
+249,549,Ranked_DestructionIAL_Date_G4,date,gear,4,Missile Launcher,"Missile Launcher: Destructions in a life, date",yes
+250,550,Ranked_Kills_G5,sum,gear,5,Shotgun,Shotgun: Kills,yes
+251,551,Ranked_TimePlayed_G5,sum,gear,5,Shotgun,Shotgun: Time played (s),yes
+252,552,Ranked_KillsIAL_G5,max,gear,5,Shotgun,Shotgun: Kills in a life,yes
+253,553,Ranked_DamageIAL_G5,max,gear,5,Shotgun,Shotgun: Damage in a life,yes
+254,554,Ranked_DestructionIAL_G5,max,gear,5,Shotgun,Shotgun: Destructions in a life,yes
+255,555,Ranked_Kills_Date_G5,date,gear,5,Shotgun,"Shotgun: Kills, date",yes
+256,556,Ranked_TimePlayed_Date_G5,date,gear,5,Shotgun,"Shotgun: Time played, date",yes
+257,557,Ranked_KillsIAL_Date_G5,date,gear,5,Shotgun,"Shotgun: Kills in a life, date",yes
+258,558,Ranked_DamageIAL_Date_G5,date,gear,5,Shotgun,"Shotgun: Damage in a life, date",yes
+259,559,Ranked_DestructionIAL_Date_G5,date,gear,5,Shotgun,"Shotgun: Destructions in a life, date",yes
+260,560,Ranked_Kills_G6,sum,gear,6,Pistol,Pistol: Kills,yes
+261,561,Ranked_TimePlayed_G6,sum,gear,6,Pistol,Pistol: Time played (s),yes
+262,562,Ranked_KillsIAL_G6,max,gear,6,Pistol,Pistol: Kills in a life,yes
+263,563,Ranked_DamageIAL_G6,max,gear,6,Pistol,Pistol: Damage in a life,yes
+264,564,Ranked_DestructionIAL_G6,max,gear,6,Pistol,Pistol: Destructions in a life,yes
+265,565,Ranked_Kills_Date_G6,date,gear,6,Pistol,"Pistol: Kills, date",yes
+266,566,Ranked_TimePlayed_Date_G6,date,gear,6,Pistol,"Pistol: Time played, date",yes
+267,567,Ranked_KillsIAL_Date_G6,date,gear,6,Pistol,"Pistol: Kills in a life, date",yes
+268,568,Ranked_DamageIAL_Date_G6,date,gear,6,Pistol,"Pistol: Damage in a life, date",yes
+269,569,Ranked_DestructionIAL_Date_G6,date,gear,6,Pistol,"Pistol: Destructions in a life, date",yes
+270,570,Ranked_Kills_G7,sum,gear,7,Det Pack,Det Pack: Kills,yes
+271,571,Ranked_TimePlayed_G7,sum,gear,7,Det Pack,Det Pack: Time played (s),yes
+272,572,Ranked_KillsIAL_G7,max,gear,7,Det Pack,Det Pack: Kills in a life,yes
+273,573,Ranked_DamageIAL_G7,max,gear,7,Det Pack,Det Pack: Damage in a life,yes
+274,574,Ranked_DestructionIAL_G7,max,gear,7,Det Pack,Det Pack: Destructions in a life,yes
+275,575,Ranked_Kills_Date_G7,date,gear,7,Det Pack,"Det Pack: Kills, date",yes
+276,576,Ranked_TimePlayed_Date_G7,date,gear,7,Det Pack,"Det Pack: Time played, date",yes
+277,577,Ranked_KillsIAL_Date_G7,date,gear,7,Det Pack,"Det Pack: Kills in a life, date",yes
+278,578,Ranked_DamageIAL_Date_G7,date,gear,7,Det Pack,"Det Pack: Damage in a life, date",yes
+279,579,Ranked_DestructionIAL_Date_G7,date,gear,7,Det Pack,"Det Pack: Destructions in a life, date",yes
+280,580,Ranked_Kills_G8,sum,gear,8,Grenade,Grenade: Kills,yes
+281,581,Ranked_TimePlayed_G8,sum,gear,8,Grenade,Grenade: Time played (s),yes
+282,582,Ranked_KillsIAL_G8,max,gear,8,Grenade,Grenade: Kills in a life,yes
+283,583,Ranked_DamageIAL_G8,max,gear,8,Grenade,Grenade: Damage in a life,yes
+284,584,Ranked_DestructionIAL_G8,max,gear,8,Grenade,Grenade: Destructions in a life,yes
+285,585,Ranked_Kills_Date_G8,date,gear,8,Grenade,"Grenade: Kills, date",yes
+286,586,Ranked_TimePlayed_Date_G8,date,gear,8,Grenade,"Grenade: Time played, date",yes
+287,587,Ranked_KillsIAL_Date_G8,date,gear,8,Grenade,"Grenade: Kills in a life, date",yes
+288,588,Ranked_DamageIAL_Date_G8,date,gear,8,Grenade,"Grenade: Damage in a life, date",yes
+289,589,Ranked_DestructionIAL_Date_G8,date,gear,8,Grenade,"Grenade: Destructions in a life, date",yes
+290,590,Ranked_Kills_G9,sum,gear,9,Mortar,Mortar: Kills,yes
+291,591,Ranked_TimePlayed_G9,sum,gear,9,Mortar,Mortar: Time played (s),yes
+292,592,Ranked_KillsIAL_G9,max,gear,9,Mortar,Mortar: Kills in a life,yes
+293,593,Ranked_DamageIAL_G9,max,gear,9,Mortar,Mortar: Damage in a life,yes
+294,594,Ranked_DestructionIAL_G9,max,gear,9,Mortar,Mortar: Destructions in a life,yes
+295,595,Ranked_Kills_Date_G9,date,gear,9,Mortar,"Mortar: Kills, date",yes
+296,596,Ranked_TimePlayed_Date_G9,date,gear,9,Mortar,"Mortar: Time played, date",yes
+297,597,Ranked_KillsIAL_Date_G9,date,gear,9,Mortar,"Mortar: Kills in a life, date",yes
+298,598,Ranked_DamageIAL_Date_G9,date,gear,9,Mortar,"Mortar: Damage in a life, date",yes
+299,599,Ranked_DestructionIAL_Date_G9,date,gear,9,Mortar,"Mortar: Destructions in a life, date",yes
+300,600,Ranked_Kills_G10,sum,gear,10,Auto Pistol,Auto Pistol: Kills,yes
+301,601,Ranked_TimePlayed_G10,sum,gear,10,Auto Pistol,Auto Pistol: Time played (s),yes
+302,602,Ranked_KillsIAL_G10,max,gear,10,Auto Pistol,Auto Pistol: Kills in a life,yes
+303,603,Ranked_DamageIAL_G10,max,gear,10,Auto Pistol,Auto Pistol: Damage in a life,yes
+304,604,Ranked_DestructionIAL_G10,max,gear,10,Auto Pistol,Auto Pistol: Destructions in a life,yes
+305,605,Ranked_Kills_Date_G10,date,gear,10,Auto Pistol,"Auto Pistol: Kills, date",yes
+306,606,Ranked_TimePlayed_Date_G10,date,gear,10,Auto Pistol,"Auto Pistol: Time played, date",yes
+307,607,Ranked_KillsIAL_Date_G10,date,gear,10,Auto Pistol,"Auto Pistol: Kills in a life, date",yes
+308,608,Ranked_DamageIAL_Date_G10,date,gear,10,Auto Pistol,"Auto Pistol: Damage in a life, date",yes
+309,609,Ranked_DestructionIAL_Date_G10,date,gear,10,Auto Pistol,"Auto Pistol: Destructions in a life, date",yes
+310,610,Ranked_Kills_G11,sum,gear,11,Unused gear slot 11,Unused gear slot 11: Kills,yes
+311,611,Ranked_TimePlayed_G11,sum,gear,11,Unused gear slot 11,Unused gear slot 11: Time played (s),yes
+312,612,Ranked_KillsIAL_G11,max,gear,11,Unused gear slot 11,Unused gear slot 11: Kills in a life,yes
+313,613,Ranked_DamageIAL_G11,max,gear,11,Unused gear slot 11,Unused gear slot 11: Damage in a life,yes
+314,614,Ranked_DestructionIAL_G11,max,gear,11,Unused gear slot 11,Unused gear slot 11: Destructions in a life,yes
+315,615,Ranked_Kills_Date_G11,date,gear,11,Unused gear slot 11,"Unused gear slot 11: Kills, date",yes
+316,616,Ranked_TimePlayed_Date_G11,date,gear,11,Unused gear slot 11,"Unused gear slot 11: Time played, date",yes
+317,617,Ranked_KillsIAL_Date_G11,date,gear,11,Unused gear slot 11,"Unused gear slot 11: Kills in a life, date",yes
+318,618,Ranked_DamageIAL_Date_G11,date,gear,11,Unused gear slot 11,"Unused gear slot 11: Damage in a life, date",yes
+319,619,Ranked_DestructionIAL_Date_G11,date,gear,11,Unused gear slot 11,"Unused gear slot 11: Destructions in a life, date",yes
+320,620,Ranked_Kills_G12,sum,gear,12,Unused gear slot 12,Unused gear slot 12: Kills,yes
+321,621,Ranked_TimePlayed_G12,sum,gear,12,Unused gear slot 12,Unused gear slot 12: Time played (s),yes
+322,622,Ranked_KillsIAL_G12,max,gear,12,Unused gear slot 12,Unused gear slot 12: Kills in a life,yes
+323,623,Ranked_DamageIAL_G12,max,gear,12,Unused gear slot 12,Unused gear slot 12: Damage in a life,yes
+324,624,Ranked_DestructionIAL_G12,max,gear,12,Unused gear slot 12,Unused gear slot 12: Destructions in a life,yes
+325,625,Ranked_Kills_Date_G12,date,gear,12,Unused gear slot 12,"Unused gear slot 12: Kills, date",yes
+326,626,Ranked_TimePlayed_Date_G12,date,gear,12,Unused gear slot 12,"Unused gear slot 12: Time played, date",yes
+327,627,Ranked_KillsIAL_Date_G12,date,gear,12,Unused gear slot 12,"Unused gear slot 12: Kills in a life, date",yes
+328,628,Ranked_DamageIAL_Date_G12,date,gear,12,Unused gear slot 12,"Unused gear slot 12: Damage in a life, date",yes
+329,629,Ranked_DestructionIAL_Date_G12,date,gear,12,Unused gear slot 12,"Unused gear slot 12: Destructions in a life, date",yes
+330,630,Ranked_Kills_G13,sum,gear,13,Unused gear slot 13,Unused gear slot 13: Kills,yes
+331,631,Ranked_TimePlayed_G13,sum,gear,13,Unused gear slot 13,Unused gear slot 13: Time played (s),yes
+332,632,Ranked_KillsIAL_G13,max,gear,13,Unused gear slot 13,Unused gear slot 13: Kills in a life,yes
+333,633,Ranked_DamageIAL_G13,max,gear,13,Unused gear slot 13,Unused gear slot 13: Damage in a life,yes
+334,634,Ranked_DestructionIAL_G13,max,gear,13,Unused gear slot 13,Unused gear slot 13: Destructions in a life,yes
+335,635,Ranked_Kills_Date_G13,date,gear,13,Unused gear slot 13,"Unused gear slot 13: Kills, date",yes
+336,636,Ranked_TimePlayed_Date_G13,date,gear,13,Unused gear slot 13,"Unused gear slot 13: Time played, date",yes
+337,637,Ranked_KillsIAL_Date_G13,date,gear,13,Unused gear slot 13,"Unused gear slot 13: Kills in a life, date",yes
+338,638,Ranked_DamageIAL_Date_G13,date,gear,13,Unused gear slot 13,"Unused gear slot 13: Damage in a life, date",yes
+339,639,Ranked_DestructionIAL_Date_G13,date,gear,13,Unused gear slot 13,"Unused gear slot 13: Destructions in a life, date",yes
+340,640,Ranked_Kills_G14,sum,gear,14,Unused gear slot 14,Unused gear slot 14: Kills,yes
+341,641,Ranked_TimePlayed_G14,sum,gear,14,Unused gear slot 14,Unused gear slot 14: Time played (s),yes
+342,642,Ranked_KillsIAL_G14,max,gear,14,Unused gear slot 14,Unused gear slot 14: Kills in a life,yes
+343,643,Ranked_DamageIAL_G14,max,gear,14,Unused gear slot 14,Unused gear slot 14: Damage in a life,yes
+344,644,Ranked_DestructionIAL_G14,max,gear,14,Unused gear slot 14,Unused gear slot 14: Destructions in a life,yes
+345,645,Ranked_Kills_Date_G14,date,gear,14,Unused gear slot 14,"Unused gear slot 14: Kills, date",yes
+346,646,Ranked_TimePlayed_Date_G14,date,gear,14,Unused gear slot 14,"Unused gear slot 14: Time played, date",yes
+347,647,Ranked_KillsIAL_Date_G14,date,gear,14,Unused gear slot 14,"Unused gear slot 14: Kills in a life, date",yes
+348,648,Ranked_DamageIAL_Date_G14,date,gear,14,Unused gear slot 14,"Unused gear slot 14: Damage in a life, date",yes
+349,649,Ranked_DestructionIAL_Date_G14,date,gear,14,Unused gear slot 14,"Unused gear slot 14: Destructions in a life, date",yes
+350,650,Ranked_Kills_G15,sum,gear,15,Unused gear slot 15,Unused gear slot 15: Kills,yes
+351,651,Ranked_TimePlayed_G15,sum,gear,15,Unused gear slot 15,Unused gear slot 15: Time played (s),yes
+352,652,Ranked_KillsIAL_G15,max,gear,15,Unused gear slot 15,Unused gear slot 15: Kills in a life,yes
+353,653,Ranked_DamageIAL_G15,max,gear,15,Unused gear slot 15,Unused gear slot 15: Damage in a life,yes
+354,654,Ranked_DestructionIAL_G15,max,gear,15,Unused gear slot 15,Unused gear slot 15: Destructions in a life,yes
+355,655,Ranked_Kills_Date_G15,date,gear,15,Unused gear slot 15,"Unused gear slot 15: Kills, date",yes
+356,656,Ranked_TimePlayed_Date_G15,date,gear,15,Unused gear slot 15,"Unused gear slot 15: Time played, date",yes
+357,657,Ranked_KillsIAL_Date_G15,date,gear,15,Unused gear slot 15,"Unused gear slot 15: Kills in a life, date",yes
+358,658,Ranked_DamageIAL_Date_G15,date,gear,15,Unused gear slot 15,"Unused gear slot 15: Damage in a life, date",yes
+359,659,Ranked_DestructionIAL_Date_G15,date,gear,15,Unused gear slot 15,"Unused gear slot 15: Destructions in a life, date",yes
+533,1000,Ranked_Feats_F0,sum,feat,0,Assault Killer (Assault),Feat Assault Killer: times completed,yes
+534,1001,Ranked_Feats_Date_F0,date,feat,0,Assault Killer (Assault),Feat Assault Killer: date earned,yes
+535,1002,Ranked_Feats1_F0,sum,feat,0,Assault Killer (Assault),Feat Assault Killer: completed at 1x the target,yes
+536,1003,Ranked_Feats2_F0,sum,feat,0,Assault Killer (Assault),Feat Assault Killer: completed at 2x the target,yes
+537,1004,Ranked_Feats3_F0,sum,feat,0,Assault Killer (Assault),Feat Assault Killer: completed at 3x the target or more,yes
+538,1005,Ranked_Feats_F1,sum,feat,1,Assister (Assault),Feat Assister: times completed,yes
+539,1006,Ranked_Feats_Date_F1,date,feat,1,Assister (Assault),Feat Assister: date earned,yes
+540,1007,Ranked_Feats1_F1,sum,feat,1,Assister (Assault),Feat Assister: completed at 1x the target,yes
+541,1008,Ranked_Feats2_F1,sum,feat,1,Assister (Assault),Feat Assister: completed at 2x the target,yes
+542,1009,Ranked_Feats3_F1,sum,feat,1,Assister (Assault),Feat Assister: completed at 3x the target or more,yes
+543,1010,Ranked_Feats_F2,sum,feat,2,Armor Destroyer (Assault),Feat Armor Destroyer: times completed,yes
+544,1011,Ranked_Feats_Date_F2,date,feat,2,Armor Destroyer (Assault),Feat Armor Destroyer: date earned,yes
+545,1012,Ranked_Feats1_F2,sum,feat,2,Armor Destroyer (Assault),Feat Armor Destroyer: completed at 1x the target,yes
+546,1013,Ranked_Feats2_F2,sum,feat,2,Armor Destroyer (Assault),Feat Armor Destroyer: completed at 2x the target,yes
+547,1014,Ranked_Feats3_F2,sum,feat,2,Armor Destroyer (Assault),Feat Armor Destroyer: completed at 3x the target or more,yes
+548,1015,Ranked_Feats_F3,sum,feat,3,Impact Killer (Assault),Feat Impact Killer: times completed,yes
+549,1016,Ranked_Feats_Date_F3,date,feat,3,Impact Killer (Assault),Feat Impact Killer: date earned,yes
+550,1017,Ranked_Feats1_F3,sum,feat,3,Impact Killer (Assault),Feat Impact Killer: completed at 1x the target,yes
+551,1018,Ranked_Feats2_F3,sum,feat,3,Impact Killer (Assault),Feat Impact Killer: completed at 2x the target,yes
+552,1019,Ranked_Feats3_F3,sum,feat,3,Impact Killer (Assault),Feat Impact Killer: completed at 3x the target or more,yes
+553,1020,Ranked_Feats_F4,sum,feat,4,Recon Killer (Recon),Feat Recon Killer: times completed,yes
+554,1021,Ranked_Feats_Date_F4,date,feat,4,Recon Killer (Recon),Feat Recon Killer: date earned,yes
+555,1022,Ranked_Feats1_F4,sum,feat,4,Recon Killer (Recon),Feat Recon Killer: completed at 1x the target,yes
+556,1023,Ranked_Feats2_F4,sum,feat,4,Recon Killer (Recon),Feat Recon Killer: completed at 2x the target,yes
+557,1024,Ranked_Feats3_F4,sum,feat,4,Recon Killer (Recon),Feat Recon Killer: completed at 3x the target or more,yes
+558,1025,Ranked_Feats_F5,sum,feat,5,Scanner (Recon),Feat Scanner: times completed,yes
+559,1026,Ranked_Feats_Date_F5,date,feat,5,Scanner (Recon),Feat Scanner: date earned,yes
+560,1027,Ranked_Feats1_F5,sum,feat,5,Scanner (Recon),Feat Scanner: completed at 1x the target,yes
+561,1028,Ranked_Feats2_F5,sum,feat,5,Scanner (Recon),Feat Scanner: completed at 2x the target,yes
+562,1029,Ranked_Feats3_F5,sum,feat,5,Scanner (Recon),Feat Scanner: completed at 3x the target or more,yes
+563,1030,Ranked_Feats_F6,sum,feat,6,Stealth (Recon),Feat Stealth: times completed,yes
+564,1031,Ranked_Feats_Date_F6,date,feat,6,Stealth (Recon),Feat Stealth: date earned,yes
+565,1032,Ranked_Feats1_F6,sum,feat,6,Stealth (Recon),Feat Stealth: completed at 1x the target,yes
+566,1033,Ranked_Feats2_F6,sum,feat,6,Stealth (Recon),Feat Stealth: completed at 2x the target,yes
+567,1034,Ranked_Feats3_F6,sum,feat,6,Stealth (Recon),Feat Stealth: completed at 3x the target or more,yes
+568,1035,Ranked_Feats_F7,sum,feat,7,Micro Sensor (Recon),Feat Micro Sensor: times completed,yes
+569,1036,Ranked_Feats_Date_F7,date,feat,7,Micro Sensor (Recon),Feat Micro Sensor: date earned,yes
+570,1037,Ranked_Feats1_F7,sum,feat,7,Micro Sensor (Recon),Feat Micro Sensor: completed at 1x the target,yes
+571,1038,Ranked_Feats2_F7,sum,feat,7,Micro Sensor (Recon),Feat Micro Sensor: completed at 2x the target,yes
+572,1039,Ranked_Feats3_F7,sum,feat,7,Micro Sensor (Recon),Feat Micro Sensor: completed at 3x the target or more,yes
+573,1040,Ranked_Feats_F8,sum,feat,8,Siege Killer (Siege),Feat Siege Killer: times completed,yes
+574,1041,Ranked_Feats_Date_F8,date,feat,8,Siege Killer (Siege),Feat Siege Killer: date earned,yes
+575,1042,Ranked_Feats1_F8,sum,feat,8,Siege Killer (Siege),Feat Siege Killer: completed at 1x the target,yes
+576,1043,Ranked_Feats2_F8,sum,feat,8,Siege Killer (Siege),Feat Siege Killer: completed at 2x the target,yes
+577,1044,Ranked_Feats3_F8,sum,feat,8,Siege Killer (Siege),Feat Siege Killer: completed at 3x the target or more,yes
+578,1045,Ranked_Feats_F9,sum,feat,9,Base Destroyer (Siege),Feat Base Destroyer: times completed,yes
+579,1046,Ranked_Feats_Date_F9,date,feat,9,Base Destroyer (Siege),Feat Base Destroyer: date earned,yes
+580,1047,Ranked_Feats1_F9,sum,feat,9,Base Destroyer (Siege),Feat Base Destroyer: completed at 1x the target,yes
+581,1048,Ranked_Feats2_F9,sum,feat,9,Base Destroyer (Siege),Feat Base Destroyer: completed at 2x the target,yes
+582,1049,Ranked_Feats3_F9,sum,feat,9,Base Destroyer (Siege),Feat Base Destroyer: completed at 3x the target or more,yes
+583,1050,Ranked_Feats_F10,sum,feat,10,Turret Destroyer (Siege),Feat Turret Destroyer: times completed,yes
+584,1051,Ranked_Feats_Date_F10,date,feat,10,Turret Destroyer (Siege),Feat Turret Destroyer: date earned,yes
+585,1052,Ranked_Feats1_F10,sum,feat,10,Turret Destroyer (Siege),Feat Turret Destroyer: completed at 1x the target,yes
+586,1053,Ranked_Feats2_F10,sum,feat,10,Turret Destroyer (Siege),Feat Turret Destroyer: completed at 2x the target,yes
+587,1054,Ranked_Feats3_F10,sum,feat,10,Turret Destroyer (Siege),Feat Turret Destroyer: completed at 3x the target or more,yes
+588,1055,Ranked_Feats_F11,sum,feat,11,Hacker (Siege),Feat Hacker: times completed,yes
+589,1056,Ranked_Feats_Date_F11,date,feat,11,Hacker (Siege),Feat Hacker: date earned,yes
+590,1057,Ranked_Feats1_F11,sum,feat,11,Hacker (Siege),Feat Hacker: completed at 1x the target,yes
+591,1058,Ranked_Feats2_F11,sum,feat,11,Hacker (Siege),Feat Hacker: completed at 2x the target,yes
+592,1059,Ranked_Feats3_F11,sum,feat,11,Hacker (Siege),Feat Hacker: completed at 3x the target or more,yes
+593,1060,Ranked_Feats_F12,sum,feat,12,Support Killer (Support),Feat Support Killer: times completed,yes
+594,1061,Ranked_Feats_Date_F12,date,feat,12,Support Killer (Support),Feat Support Killer: date earned,yes
+595,1062,Ranked_Feats1_F12,sum,feat,12,Support Killer (Support),Feat Support Killer: completed at 1x the target,yes
+596,1063,Ranked_Feats2_F12,sum,feat,12,Support Killer (Support),Feat Support Killer: completed at 2x the target,yes
+597,1064,Ranked_Feats3_F12,sum,feat,12,Support Killer (Support),Feat Support Killer: completed at 3x the target or more,yes
+598,1065,Ranked_Feats_F13,sum,feat,13,Repairer (Support),Feat Repairer: times completed,yes
+599,1066,Ranked_Feats_Date_F13,date,feat,13,Repairer (Support),Feat Repairer: date earned,yes
+600,1067,Ranked_Feats1_F13,sum,feat,13,Repairer (Support),Feat Repairer: completed at 1x the target,yes
+601,1068,Ranked_Feats2_F13,sum,feat,13,Repairer (Support),Feat Repairer: completed at 2x the target,yes
+602,1069,Ranked_Feats3_F13,sum,feat,13,Repairer (Support),Feat Repairer: completed at 3x the target or more,yes
+603,1070,Ranked_Feats_F14,sum,feat,14,Tank Destroyer (Support),Feat Tank Destroyer: times completed,yes
+604,1071,Ranked_Feats_Date_F14,date,feat,14,Tank Destroyer (Support),Feat Tank Destroyer: date earned,yes
+605,1072,Ranked_Feats1_F14,sum,feat,14,Tank Destroyer (Support),Feat Tank Destroyer: completed at 1x the target,yes
+606,1073,Ranked_Feats2_F14,sum,feat,14,Tank Destroyer (Support),Feat Tank Destroyer: completed at 2x the target,yes
+607,1074,Ranked_Feats3_F14,sum,feat,14,Tank Destroyer (Support),Feat Tank Destroyer: completed at 3x the target or more,yes
+608,1075,Ranked_Feats_F15,sum,feat,15,Defuser (Support),Feat Defuser: times completed,yes
+609,1076,Ranked_Feats_Date_F15,date,feat,15,Defuser (Support),Feat Defuser: date earned,yes
+610,1077,Ranked_Feats1_F15,sum,feat,15,Defuser (Support),Feat Defuser: completed at 1x the target,yes
+611,1078,Ranked_Feats2_F15,sum,feat,15,Defuser (Support),Feat Defuser: completed at 2x the target,yes
+612,1079,Ranked_Feats3_F15,sum,feat,15,Defuser (Support),Feat Defuser: completed at 3x the target or more,yes
+613,1200,Ranked_Badge_B0,sum,badge,0,Specialist (Combat),Badge Specialist: times earned,yes
+614,1201,Ranked_Badge_Date_B0,date,badge,0,Specialist (Combat),Badge Specialist: date earned,yes
+615,1202,Ranked_Badge_B1,sum,badge,1,Point Offense (Combat),Badge Point Offense: times earned,yes
+616,1203,Ranked_Badge_Date_B1,date,badge,1,Point Offense (Combat),Badge Point Offense: date earned,yes
+617,1204,Ranked_Badge_B2,sum,badge,2,Armor Combat (Combat),Badge Armor Combat: times earned,yes
+618,1205,Ranked_Badge_Date_B2,date,badge,2,Armor Combat (Combat),Badge Armor Combat: date earned,yes
+619,1206,Ranked_Badge_B3,sum,badge,3,Infantry Combat (Combat),Badge Infantry Combat: times earned,yes
+620,1207,Ranked_Badge_Date_B3,date,badge,3,Infantry Combat (Combat),Badge Infantry Combat: date earned,yes
+621,1208,Ranked_Badge_B4,sum,badge,4,Anti-Vehicular Combat (Combat),Badge Anti-Vehicular Combat: times earned,yes
+622,1209,Ranked_Badge_Date_B4,date,badge,4,Anti-Vehicular Combat (Combat),Badge Anti-Vehicular Combat: date earned,yes
+623,1210,Ranked_Badge_B5,sum,badge,5,Retaliation (Combat),Badge Retaliation: times earned,yes
+624,1211,Ranked_Badge_Date_B5,date,badge,5,Retaliation (Combat),Badge Retaliation: date earned,yes
+625,1212,Ranked_Badge_B6,sum,badge,6,Tank Combat (Combat),Badge Tank Combat: times earned,yes
+626,1213,Ranked_Badge_Date_B6,date,badge,6,Tank Combat (Combat),Badge Tank Combat: date earned,yes
+627,1214,Ranked_Badge_B7,sum,badge,7,Marksman (Combat),Badge Marksman: times earned,yes
+628,1215,Ranked_Badge_Date_B7,date,badge,7,Marksman (Combat),Badge Marksman: date earned,yes
+629,1216,Ranked_Badge_B8,sum,badge,8,Objective Support (Conquest),Badge Objective Support: times earned,yes
+630,1217,Ranked_Badge_Date_B8,date,badge,8,Objective Support (Conquest),Badge Objective Support: date earned,yes
+631,1218,Ranked_Badge_B9,sum,badge,9,Conquer (Conquest),Badge Conquer: times earned,yes
+632,1219,Ranked_Badge_Date_B9,date,badge,9,Conquer (Conquest),Badge Conquer: date earned,yes
+633,1220,Ranked_Badge_B10,sum,badge,10,Enduring Service (Conquest),Badge Enduring Service: times earned,yes
+634,1221,Ranked_Badge_Date_B10,date,badge,10,Enduring Service (Conquest),Badge Enduring Service: date earned,yes
+635,1222,Ranked_Badge_B11,sum,badge,11,Distinguished Service (Conquest),Badge Distinguished Service: times earned,yes
+636,1223,Ranked_Badge_Date_B11,date,badge,11,Distinguished Service (Conquest),Badge Distinguished Service: date earned,yes
+637,1224,Ranked_Badge_B12,sum,badge,12,Guardian (Conquest),Badge Guardian: times earned,yes
+638,1225,Ranked_Badge_Date_B12,date,badge,12,Guardian (Conquest),Badge Guardian: date earned,yes
+639,1226,Ranked_Badge_B13,sum,badge,13,Sapper (Conquest),Badge Sapper: times earned,yes
+640,1227,Ranked_Badge_Date_B13,date,badge,13,Sapper (Conquest),Badge Sapper: date earned,yes
+641,1228,Ranked_Badge_B14,sum,badge,14,Honorable Service (Conquest),Badge Honorable Service: times earned,yes
+642,1229,Ranked_Badge_Date_B14,date,badge,14,Honorable Service (Conquest),Badge Honorable Service: date earned,yes
+643,1230,Ranked_Badge_B15,sum,badge,15,Battlefield Victory (Conquest),Badge Battlefield Victory: times earned,yes
+644,1231,Ranked_Badge_Date_B15,date,badge,15,Battlefield Victory (Conquest),Badge Battlefield Victory: date earned,yes
+645,1232,Ranked_Badge_B16,sum,badge,16,Ordinance Disposal (Mission),Badge Ordinance Disposal: times earned,yes
+646,1233,Ranked_Badge_Date_B16,date,badge,16,Ordinance Disposal (Mission),Badge Ordinance Disposal: date earned,yes
+647,1234,Ranked_Badge_B17,sum,badge,17,Demolition (Mission),Badge Demolition: times earned,yes
+648,1235,Ranked_Badge_Date_B17,date,badge,17,Demolition (Mission),Badge Demolition: date earned,yes
+649,1236,Ranked_Badge_B18,sum,badge,18,Special Ops (Mission),Badge Special Ops: times earned,yes
+650,1237,Ranked_Badge_Date_B18,date,badge,18,Special Ops (Mission),Badge Special Ops: date earned,yes
+651,1238,Ranked_Badge_B19,sum,badge,19,Interception (Mission),Badge Interception: times earned,yes
+652,1239,Ranked_Badge_Date_B19,date,badge,19,Interception (Mission),Badge Interception: date earned,yes
+653,1240,Ranked_Badge_B20,sum,badge,20,Espionage (Mission),Badge Espionage: times earned,yes
+654,1241,Ranked_Badge_Date_B20,date,badge,20,Espionage (Mission),Badge Espionage: date earned,yes
+655,1242,Ranked_Badge_B21,sum,badge,21,Counter-Espionage (Mission),Badge Counter-Espionage: times earned,yes
+656,1243,Ranked_Badge_Date_B21,date,badge,21,Counter-Espionage (Mission),Badge Counter-Espionage: date earned,yes
+657,1244,Ranked_Badge_B22,sum,badge,22,Outpost Raze (Mission),Badge Outpost Raze: times earned,yes
+658,1245,Ranked_Badge_Date_B22,date,badge,22,Outpost Raze (Mission),Badge Outpost Raze: date earned,yes
+659,1246,Ranked_Badge_B23,sum,badge,23,Assassination (Mission),Badge Assassination: times earned,yes
+660,1247,Ranked_Badge_Date_B23,date,badge,23,Assassination (Mission),Badge Assassination: date earned,yes
+661,1248,Ranked_Badge_B24,sum,badge,24,Intelligence Network (Tactics),Badge Intelligence Network: times earned,yes
+662,1249,Ranked_Badge_Date_B24,date,badge,24,Intelligence Network (Tactics),Badge Intelligence Network: date earned,yes
+663,1250,Ranked_Badge_B25,sum,badge,25,Clear Skies (Tactics),Badge Clear Skies: times earned,yes
+664,1251,Ranked_Badge_Date_B25,date,badge,25,Clear Skies (Tactics),Badge Clear Skies: date earned,yes
+665,1252,Ranked_Badge_B26,sum,badge,26,Shroud (Tactics),Badge Shroud: times earned,yes
+666,1253,Ranked_Badge_Date_B26,date,badge,26,Shroud (Tactics),Badge Shroud: date earned,yes
+667,1254,Ranked_Badge_B27,sum,badge,27,Circumvent Defenses (Tactics),Badge Circumvent Defenses: times earned,yes
+668,1255,Ranked_Badge_Date_B27,date,badge,27,Circumvent Defenses (Tactics),Badge Circumvent Defenses: date earned,yes
+669,1256,Ranked_Badge_B28,sum,badge,28,Medic (Tactics),Badge Medic: times earned,yes
+670,1257,Ranked_Badge_Date_B28,date,badge,28,Medic (Tactics),Badge Medic: date earned,yes
+671,1258,Ranked_Badge_B29,sum,badge,29,Squad Tactics (Tactics),Badge Squad Tactics: times earned,yes
+672,1259,Ranked_Badge_Date_B29,date,badge,29,Squad Tactics (Tactics),Badge Squad Tactics: date earned,yes
+673,1260,Ranked_Badge_B30,sum,badge,30,Supplier (Tactics),Badge Supplier: times earned,yes
+674,1261,Ranked_Badge_Date_B30,date,badge,30,Supplier (Tactics),Badge Supplier: date earned,yes
+675,1262,Ranked_Badge_B31,sum,badge,31,Security Automation (Tactics),Badge Security Automation: times earned,yes
+676,1263,Ranked_Badge_Date_B31,date,badge,31,Security Automation (Tactics),Badge Security Automation: date earned,yes
+1000,1500,Ranked_clantag,replace,system,,,Clan tag,yes
+1001,1501,Ranked_Locale,replace,system,,,Client locale,yes
+1002,1502,Ranked_ScoreTeamwork,sum,career,,,Teamwork score,no
+1003,1503,Ranked_ScoreCombat,sum,career,,,Combat score,no

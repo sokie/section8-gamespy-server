@@ -1,0 +1,27 @@
+# Only what the server reads at run time goes into the image.
+.git
+.github
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.ruff_cache
+.mypy_cache
+.coverage*
+coverage.xml
+htmlcov
+build
+dist
+docs
+tests
+reports
+backend_*.txt
+config.json
+*.db
+*.db-wal
+*.db-shm
+*.db.bak*
+*.log
+*.log.prev*
+Dockerfile
+docker-compose.yml

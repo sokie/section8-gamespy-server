@@ -1,0 +1,17 @@
+{
+  "title": "section8",
+  "player_table": null,
+  "xp_column": "Ranked_xp",
+  "level_column": "Ranked_Level",
+  "level_xp": [],
+  "ranks": [],
+  "game_modes": {"1": "Conquest"},
+  "stats": [
+    {"key": 1, "column": "Ranked_Kills", "fold": "sum", "label": "Kills"},
+    {"key": 2, "column": "Ranked_Deaths", "fold": "sum", "label": "Deaths"},
+    {"key": 11, "column": "Ranked_xp", "fold": "sum", "label": "XP"},
+    {"key": 12, "column": "Ranked_Level", "fold": "replace", "label": "Level"},
+    {"key": 5, "column": "Ranked_Kills_Date", "fold": "date", "sake_type": "date", "date_of": "Ranked_Kills", "label": "Kills, date"}
+  ],
+  "_comment": "An example of the catalogue format. catalog/section8.json is the real catalogue, and scripts/build_section8_catalog.py generates it."
+}

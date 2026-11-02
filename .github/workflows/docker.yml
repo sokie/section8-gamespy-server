@@ -1,0 +1,107 @@
+name: Docker image
+
+# Builds the image, boots it, checks every service, then pushes it to ghcr.io/<owner>/<repo>.
+#   v1.2.3 tag            -> 1.2.3, 1.2, latest, sha-<commit>. A pre-release tag (v1.3.0-rc1) gets no latest.
+#   manual run on main    -> latest, sha-<commit>
+#   pull request          -> build and checks only, nothing pushed
+# A server that runs :latest with Watchtower (docker-compose.yml) updates itself within 5 minutes of a push.
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version and the tags
+        id: meta
+        run: |
+          if [ "$GITHUB_REF_TYPE" = tag ]; then
+            version="${GITHUB_REF_NAME#v}"
+            tags="$version"
+            case "$version" in
+              *-*) ;;
+              *) tags="$tags ${version%.*} latest" ;;
+            esac
+          else
+            version="${GITHUB_REF_NAME//\//-}-${GITHUB_SHA::7}"
+            tags=""
+            if [ "$GITHUB_EVENT_NAME" = workflow_dispatch ] && [ "$GITHUB_REF_NAME" = main ]; then
+              tags="latest"
+            fi
+          fi
+          tags="$tags sha-${GITHUB_SHA::7}"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "version $version, tags: $tags"
+
+      - name: Build
+        run: |
+          docker build \
+            --build-arg VERSION="${{ steps.meta.outputs.version }}" \
+            --build-arg VCS_REF="$GITHUB_SHA" \
+            --build-arg BUILD_ID="$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT" \
+            --label org.opencontainers.image.source="https://github.com/$GITHUB_REPOSITORY" \
+            --label org.opencontainers.image.revision="$GITHUB_SHA" \
+            --label org.opencontainers.image.version="${{ steps.meta.outputs.version }}" \
+            --label org.opencontainers.image.description="Section 8 GameSpy backend server emulator" \
+            -t section8:ci .
+
+      - name: Boot the image and check every service
+        run: |
+          wait_healthy() {
+            for _ in $(seq 1 45); do
+              [ "$(docker inspect -f '{{.State.Health.Status}}' "$1")" = healthy ] && return 0
+              sleep 2
+            done
+            docker logs "$1"
+            return 1
+          }
+          docker run -d --name s8 -v s8data:/data \
+            -p 8901-8906:8901-8906 -p 27900:27900/udp -p 8080:8080 section8:ci
+          wait_healthy s8
+          python3 scripts/check_server.py 127.0.0.1 --portal http://127.0.0.1:8080
+          docker stop s8
+          test "$(docker inspect -f '{{.State.ExitCode}}' s8)" = 0
+          docker rm s8
+
+          # The same volume under a different build stands in for an automatic update.
+          docker run -d --name s8next -v s8data:/data -e SECTION8_IMAGE_BUILD=next \
+            -p 8901-8906:8901-8906 -p 27900:27900/udp -p 8080:8080 section8:ci
+          wait_healthy s8next
+          docker logs s8next 2>&1 | grep "database backed up"
+          python3 scripts/check_server.py 127.0.0.1 --portal http://127.0.0.1:8080
+          docker rm -f s8next
+
+      - name: Log in to the GitHub container registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Push
+        if: github.event_name != 'pull_request'
+        run: |
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            docker tag section8:ci "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done

@@ -1,0 +1,55 @@
+[project]
+name = "section8-gamespy-server"
+version = "1.0.0"
+description = "Section 8 GameSpy / ATLAS backend server emulator"
+requires-python = ">=3.10"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 120
+# Generated, with one stat per line so it is easy to search.
+extend-exclude = ["server/statdefs.py"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "F",
+    "I",
+    "B",
+    "C4",
+    "UP",
+    "SIM",
+]
+ignore = [
+    "E501",   # the formatter sets line length
+    "E722",   # a bare except keeps a listener alive
+    "SIM105",
+    "SIM108",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# These set sys.path before they import `server`.
+"scripts/stats_tool.py" = ["E402"]
+"scripts/probe_columns.py" = ["E402"]
+"tests/smoke.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["server"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_ignores = true
+disallow_untyped_defs = false
+ignore_missing_imports = true
+
+[tool.coverage.run]
+source = ["server"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "if __name__ == .__main__.:",
+]

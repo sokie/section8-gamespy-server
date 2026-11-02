@@ -1,0 +1,9 @@
+{
+  "_comment": "Unlock list for the profile page. Each item: name, category, and either level (Prejudice level that unlocks it) or section8_level (Section 8 2009 level, read from S8Level_v6). Optional: description, image (path inside portal_assets). Add the level unlocks as you see them in game.",
+  "unlocks": [
+    {"name": "Reactive Plating", "category": "Veteran", "section8_level": 1},
+    {"name": "Aegis Armor", "category": "Veteran", "section8_level": 1},
+    {"name": "Ablative Layering", "category": "Veteran", "section8_level": 25},
+    {"name": "Explosives Amplifier", "category": "Veteran", "section8_level": 50}
+  ]
+}

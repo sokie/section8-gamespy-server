@@ -1,0 +1,7 @@
+# Section 8: Prejudice GameSpy backend
+#
+# There are no third-party runtime dependencies. The server, the tests and the helper scripts all run
+# on the Python 3.10+ standard library alone.
+#
+# This file exists so that `pip install -r requirements.txt` is a valid no-op. Pin any future
+# dependency below.

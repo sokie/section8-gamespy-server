@@ -1,0 +1,5 @@
+# Development and build dependencies. The server itself needs none of these; see requirements.txt.
+ruff>=0.8.0
+mypy>=1.13.0
+coverage>=7.6.0
+pyinstaller>=6.1.0,<7.0.0

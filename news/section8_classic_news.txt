@@ -1,0 +1,6 @@
+[Settings]
+;Section 8 (2009) news payload, served UTF-16LE through SakeFileServer exactly like Prejudice's.
+;Settings lines use <GameInfoFilter>-<Class>.<Property>=<Value>; none are needed for Conquest.
+;The banner block below follows the same rule as Prejudice: one line, nothing after it mentions its key.
+[MOTD]
+MOTD_INT=Welcome to the Section 8 revival server.
