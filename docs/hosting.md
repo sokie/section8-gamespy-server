@@ -34,7 +34,7 @@ Copy `config.example.json` to `config.json` and keep only the keys you change.
 |---|---|---|
 | 8901–8906/tcp | players | GPSP, GPCM, AuthService, CompetitionService, Sake, MOTD |
 | 27900/udp | players | Availability check. The 7-byte answer is too small for amplification |
-| 8080/tcp | whoever should see the stats portal | Read-only, no login. Behind a reverse proxy, open 80 and 443 instead |
+| 8080/tcp | whoever should see the stats portal | Stats for anyone, accounts for players who claim a profile. Behind a reverse proxy, open 80 and 443 instead |
 | 8800/tcp | nobody | Spare HTTP listener, no client uses it |
 
 On a VPS, use the provider's network firewall (on Hostinger, the VPS firewall in hPanel). A firewall

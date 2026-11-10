@@ -1,8 +1,8 @@
 # Stats portal
 
-A read-only stats website and JSON API, served by the server itself on http://localhost:8080/ (other
-PCs: `http://<server address>:8080/`). It reads the database through read-only connections, so it never
-slows the game services.
+A stats website and JSON API, served by the server itself on http://localhost:8080/ (other PCs:
+`http://<server address>:8080/`). The stats pages read the database through read-only connections, so
+they never slow the game services. Only the account page changes data.
 
 | Page | Shows |
 |---|---|
@@ -11,6 +11,7 @@ slows the game services.
 | `/players/<profileid>` | Level, career, records, time per mode, badges, feats, weapons, the last 25 matches |
 | `/players?q=<name>` | Search by display name, nick or profileid |
 | `/servers` | Dedicated servers; offline after 5 minutes without an update |
+| `/account` | Sign-in, and the display name and clan tag of each profile the account claimed |
 | `/api` | JSON: `/api/games`, `/api/summary`, `/api/leaderboard?sort=&offset=&limit=`, `/api/players?q=`, `/api/players/<id>`, `/api/servers` |
 
 Section 8 (2009) has the same pages under `/s8` and `/api/s8/`. A player of both games has one profile,
@@ -40,15 +41,64 @@ A script puts every value into the page as text, never as markup, and the pages 
 
 `portal_enabled` (default `true`) and `portal_port` (`8080`) in `config.json`. The portal binds to
 `bind_address`. If the port is taken, the server logs `skip stats portal` and the game services run as
-usual. The portal has no login: anyone who reaches the port sees the stats.
+usual. Anyone who reaches the port sees the stats. An account is needed only to claim a profile.
 
-`python -m server.portal --config <config.json> serve` runs the portal on its own beside any server
-build. It only reads the database.
+`python -m server.portal --config <config.json> serve` runs the portal on its own, without the game
+services.
+
+## Accounts and claimed profiles
+
+A player creates an account on `/account` with a username and a password for the portal only. The
+game's GameSpy password is not used, because the game makes it from the profile.
+
+The account then claims the player's game profile with the code from the game:
+
+1. In Section 8: Prejudice, sign in to Prejudice Online, open Dropship, then Stats Portal. The game
+   shows a code such as `758B-338A-154D` and writes the code's random part to its profile record.
+2. On `/account`, enter the code. The first eight digits name the profile. The last four must match
+   the random part that the game wrote last. The game makes a new code each time the screen opens.
+3. The claim sets `Profile_LinkCodeUsed`. At its next sign-in, the game shows "Your account has been
+   activated" instead of a code.
+
+A profile has one owner. The owner sets its display name and clan tag, and can release it. A clan tag
+has up to 3 letters and digits, and `TG` is reserved. The game reads the tag at its next sign-in. To
+free a profile whose owner lost their account:
+
+```bash
+python -m server.portal release T8iPxxxxxxxx      # or the profileid; safe while the server runs
+```
+
+The game then shows a new code at its next sign-in. A code that claimed a profile does not work again.
+
+| Limit | Value |
+|---|---|
+| Wrong codes for one code of a profile | 5, then the player opens the Stats Portal screen for a new code |
+| Wrong codes for one account | 20 an hour |
+| Failed sign-ins | 10 per username and 30 per address, in 15 minutes |
+| New accounts per address | 5 an hour |
+
+A password is stored as a salted scrypt hash. The session cookie is `HttpOnly` and `SameSite=Strict`,
+and it lasts 14 days. The account API refuses a request that is not JSON or that comes from another
+site. For a public server, put the portal behind HTTPS, so that passwords do not cross the network as
+plain text. Behind a reverse proxy on a private address, such as Traefik, the portal takes the browser's
+address from `X-Forwarded-For` and marks the cookie `Secure` when `X-Forwarded-Proto` is `https`.
+
+The account API, under `/api/account`:
+
+| Request | Does |
+|---|---|
+| `GET /api/account` | The signed-in account and its profiles, or `{"signed_in": false}` |
+| `POST /register`, `POST /login` `{"username", "password"}` | Creates an account or signs in, and sets the session cookie |
+| `POST /logout` | Ends the session |
+| `POST /password` `{"current", "new"}` | Changes the password and ends the other sessions |
+| `POST /claim` `{"code"}` | Claims the profile that shows this code |
+| `POST /profiles/<profileid>` `{"display_name", "clan_tag"}` | Sets either one; an empty value clears it |
+| `POST /profiles/<profileid>/release` | Frees the profile |
 
 ## Display names
 
-The game logs in with a generated GameSpy nick (`T8iP…`), not the gamertag. Give a player a readable
-name, while the server runs if you like:
+The game logs in with a generated GameSpy nick (`T8iP…`), not the gamertag. The owner of a claimed
+profile sets its name on `/account`. An admin can name any profile, while the server runs if you like:
 
 ```bash
 python -m server.portal name T8iPxxxxxxxx "Leon"   # by nick
@@ -56,7 +106,8 @@ python -m server.portal name 10000001 "Leon"       # by profileid
 python -m server.portal name 10000001              # clear it
 ```
 
-Or list them in `config.json`, keyed by nick (not case sensitive) or profileid:
+Or list them in `config.json`, keyed by nick (not case sensitive) or profileid. A name in
+`config.json` is shown instead of the owner's name:
 
 ```json
 "portal_names": {"T8iPFFF6FFFF2D5C59B7": "StoneCold"}
