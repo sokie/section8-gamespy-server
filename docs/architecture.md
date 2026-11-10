@@ -138,7 +138,7 @@ out: the first dword is the profileid, bytes 4–7 are `BEEFCAFE`. A roster slot
 | Table | The game reads | Written by |
 |---|---|---|
 | `PlayerStats_v6` | the player's own ranked stats | this server, from reports |
-| `PlayerProfile2_v6` | clan tag, achievements, link code | the client |
+| `PlayerProfile2_v6` | clan tag, achievements, link code | the client; the portal sets `Profile_LinkCodeUsed` and `Profile_ClanTag` for a claimed profile |
 | `S8Level_v6` | the Section 8 (2009) level, for Prejudice's veteran unlocks | this server, from Section 8 reports |
 | `ServerStatusTG09_v6` | a dedicated server's live status | the dedicated server |
 | `NewsStats_v6` | the news file index | `server/news.py` |

@@ -369,19 +369,7 @@ class Store:
 
     def set_fields(self, table_id: str, owner_id: int, record_id: int, values: list[tuple[str, str, str]]) -> None:
         with self._lock:
-            self._db.executemany(
-                "INSERT INTO fields(table_id, owner_id, record_id, name, value_type, value) "
-                "VALUES(?,?,?,?,?,?) "
-                "ON CONFLICT(table_id, owner_id, record_id, name) DO UPDATE SET "
-                "value_type=excluded.value_type, value=excluded.value",
-                [(table_id, owner_id, record_id, n, t, v) for (n, t, v) in values],
-            )
-            # The stats portal uses this time to find which dedicated servers are live.
-            self._db.execute(
-                "INSERT INTO record_times(table_id, owner_id, record_id, updated_at) VALUES(?,?,?,?) "
-                "ON CONFLICT(table_id, owner_id, record_id) DO UPDATE SET updated_at=excluded.updated_at",
-                (table_id, owner_id, record_id, time.time()),
-            )
+            write_fields(self._db, table_id, owner_id, record_id, values)
             self._commit()
 
     def get_fields(self, table_id: str, owner_id: int, record_id: int) -> dict[str, tuple[str, str]]:
@@ -532,6 +520,24 @@ class Store:
                 "DELETE FROM fields WHERE table_id=? AND owner_id=? AND record_id=?", (table_id, owner_id, record_id)
             )
             self.set_fields(table_id, owner_id, record_id, values)
+
+
+def write_fields(conn, table_id: str, owner_id: int, record_id: int, values) -> None:
+    """Writes (name, Sake type, value) fields into one record and sets the record's update time. The
+    caller commits."""
+    conn.executemany(
+        "INSERT INTO fields(table_id, owner_id, record_id, name, value_type, value) "
+        "VALUES(?,?,?,?,?,?) "
+        "ON CONFLICT(table_id, owner_id, record_id, name) DO UPDATE SET "
+        "value_type=excluded.value_type, value=excluded.value",
+        [(table_id, owner_id, record_id, n, t, v) for (n, t, v) in values],
+    )
+    # The stats portal uses this time to find which dedicated servers are live.
+    conn.execute(
+        "INSERT INTO record_times(table_id, owner_id, record_id, updated_at) VALUES(?,?,?,?) "
+        "ON CONFLICT(table_id, owner_id, record_id) DO UPDATE SET updated_at=excluded.updated_at",
+        (table_id, owner_id, record_id, time.time()),
+    )
 
 
 def _item_name(s) -> str | None:

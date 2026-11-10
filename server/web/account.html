@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark">
+  <title>Account · Section 8 Stats</title>
+  <link rel="stylesheet" href="/static/portal.css">
+  <script type="module" src="/static/js/account.js"></script>
+</head>
+<body data-page="account">
+<!--#include file="header.html" -->
+<main>
+  <h1>Account</h1>
+  <p class="sub" id="account-summary">Loading&hellip;</p>
+  <div class="notice" id="account-message" role="status" hidden></div>
+
+  <section id="signed-out" hidden>
+    <div class="two">
+      <form class="panel form" id="login-form">
+        <h2>Sign in</h2>
+        <label>Username <input name="username" autocomplete="username" required></label>
+        <label>Password <input name="password" type="password" autocomplete="current-password" required></label>
+        <div class="actions"><button type="submit">Sign in</button></div>
+      </form>
+      <form class="panel form" id="register-form">
+        <h2>Create an account</h2>
+        <label>Username <input name="username" autocomplete="username" required minlength="3" maxlength="24"></label>
+        <label>
+          Password
+          <input name="password" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
+        </label>
+        <p class="muted small">This password is for this site only. Use a password that no other account has.</p>
+        <div class="actions"><button type="submit">Create account</button></div>
+      </form>
+    </div>
+    <h2>How to claim your profile</h2>
+    <ol class="panel steps">
+      <li>Create an account on this page and sign in.</li>
+      <li>In Section 8: Prejudice, sign in to Prejudice Online, open Dropship, then Stats Portal. The game shows a
+        code such as <code>758B-338A-154D</code>.</li>
+      <li>Enter the code under <b>Claim a profile</b>. The game makes a new code each time the Stats Portal screen
+        opens, so enter the newest one.</li>
+      <li>Set the display name and the clan tag of the profile. At its next sign-in, the game shows the profile as
+        activated, with the new clan tag.</li>
+    </ol>
+  </section>
+
+  <section id="signed-in" hidden>
+    <div class="inline">
+      <span>Signed in as <b id="account-name"></b></span>
+      <button type="button" class="quiet" id="logout">Sign out</button>
+    </div>
+
+    <h2>Claim a profile</h2>
+    <form class="panel form" id="claim-form">
+      <p class="muted small">In the game, sign in to Prejudice Online, open Dropship, then Stats Portal, and enter the
+        code it shows. Each profile can have one owner.</p>
+      <div class="row">
+        <label>Code <input name="code" placeholder="758B-338A-154D" autocomplete="off" required maxlength="20"></label>
+      </div>
+      <div class="actions"><button type="submit">Claim</button></div>
+    </form>
+
+    <h2>Your profiles</h2>
+    <div class="profiles" id="profiles"></div>
+
+    <h2>Change password</h2>
+    <form class="panel form" id="password-form">
+      <div class="row">
+        <label>
+          Current password
+          <input name="current" type="password" autocomplete="current-password" required>
+        </label>
+        <label>
+          New password
+          <input name="new" type="password" autocomplete="new-password" required minlength="8" maxlength="128">
+        </label>
+      </div>
+      <div class="actions"><button type="submit">Change password</button></div>
+    </form>
+  </section>
+</main>
+
+<template id="tpl-profile">
+  <form class="panel form">
+    <div class="who"><span class="clan" data-field="clan"></span><b data-field="name"></b></div>
+    <div class="muted small" data-field="nick"></div>
+    <div class="careers" data-field="careers"></div>
+    <div class="row">
+      <label>Display name <input name="display_name" maxlength="24" autocomplete="off"></label>
+      <label>Clan tag <input name="clan_tag" maxlength="3" autocomplete="off" pattern="[A-Za-z0-9]{0,3}"></label>
+    </div>
+    <p class="muted small" data-field="note"></p>
+    <div class="actions">
+      <button type="submit">Save</button>
+      <button type="button" class="quiet" data-field="release">Release</button>
+    </div>
+  </form>
+</template>
+<template id="tpl-career">
+  <a class="career" data-field="link"><img class="ico-s" data-field="icon" alt=""><span data-field="text"></span></a>
+</template>
+<template id="tpl-no-profiles"><div class="panel empty">No profile yet. Claim one with the code from the game.</div></template>
+<!--#include file="footer.html" -->
+</body>
+</html>

@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import stats
+from .profile_fields import CLAN_TAG_FIELD, clan_tag_from_value
 
 # A dedicated server rewrites its status record while it runs. The portal shows an older record as offline.
 SERVER_STALE_SECONDS = 300
@@ -154,6 +155,10 @@ class PortalData:
         with self._lock:
             self._cache[key] = (now, value)
         return value
+
+    def forget(self) -> None:
+        with self._lock:
+            self._cache.clear()
 
     @staticmethod
     def _has_table(conn, name: str) -> bool:
@@ -302,8 +307,9 @@ class PortalData:
         out = self._summary_row(pid, f, profiles, {pid: match_count})
         out["game"] = self.game.key
         out["has_stats"] = bool(f)
-        clan = profile.get("Profile_ClanTag") or f.get("Ranked_clantag")
-        out["clan_tag"] = clan if clan not in (None, "", "0") else None  # The client writes 0 for no tag.
+        out["clan_tag"] = clan_tag_from_value(profile.get(CLAN_TAG_FIELD)) or clan_tag_from_value(
+            f.get("Ranked_ClanTag")
+        )
         out["section8_level"] = _int(next(iter(linked.values()), None)) or None
         level = out["level"]
         table = cat.level_xp

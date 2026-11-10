@@ -54,6 +54,7 @@ jobs:
           coverage run -m tests.smoke
           coverage run -a -m tests.smoke_section8
           coverage run -a -m tests.smoke_portal
+          coverage run -a -m tests.smoke_accounts
           coverage run -a -m tests.smoke_carry
           coverage run -a -m tests.smoke_container
           coverage xml
