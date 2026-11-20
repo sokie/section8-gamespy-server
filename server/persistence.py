@@ -10,6 +10,47 @@ SCHEMA_VERSION = 2
 
 _PLAYER_STATS = "PlayerStats_v6"
 
+# A dedicated server sends a report every 330 seconds during a match, and one when it ends. It opens the next
+# session 20 seconds after an interim report, and about 50 seconds after the last one: the scoreboard and the
+# next map's load. So one match spans several rows of matches.
+REPORT_INTERVAL = 330
+SESSION_GAP = 35
+LAST_REPORT_WITHIN = 900
+_TIME = "%Y-%m-%dT%H:%M:%SZ"
+
+
+def _now() -> str:
+    return datetime.now(timezone.utc).strftime(_TIME)
+
+
+def _seconds(stamp) -> float | None:
+    try:
+        return datetime.strptime(stamp, _TIME).replace(tzinfo=timezone.utc).timestamp()
+    except (TypeError, ValueError):
+        return None
+
+
+def continues_match(prev, received_at: str, session_started_at, game_mode, ends_match) -> bool:
+    """Tells whether a host's report belongs to the match of its previous report. prev is that report's
+    (received_at, game_mode, ends_match), or None."""
+    if prev is None or prev[2]:
+        return False
+    if None not in (prev[1], game_mode) and prev[1] != game_mode:
+        return False
+    before = _seconds(prev[0])
+    if before is None:
+        return False
+    started = _seconds(session_started_at)
+    if started is not None:
+        return 0 <= started - before <= SESSION_GAP
+    # No session start: a row stored before they were kept, or a session opened before a restart.
+    received = _seconds(received_at)
+    if received is None:
+        return False
+    interval = received - before
+    return abs(interval - REPORT_INTERVAL) <= 15 or (bool(ends_match) and 0 <= interval <= LAST_REPORT_WITHIN)
+
+
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS records (
     table_id   TEXT    NOT NULL,
@@ -138,6 +179,7 @@ class Store:
         self._db.executescript(_SCHEMA)
         self._migrate_match_title()
         self._migrate_stats_v2()
+        self._migrate_match_groups()
         self._sync_stat_defs()
         self._db.commit()
 
@@ -203,6 +245,32 @@ class Store:
         if "title" not in cols:
             self._db.execute("ALTER TABLE matches ADD COLUMN title TEXT NOT NULL DEFAULT 'prejudice'")
             self._db.commit()
+
+    def _migrate_match_groups(self) -> None:
+        """Adds the columns that group reports into matches, and groups the rows already stored."""
+        cols = [r[1] for r in self._db.execute("PRAGMA table_info(matches)")]
+        if "match_group" in cols:
+            return
+        for col, sql_type in (("session_started_at", "TEXT"), ("ends_match", "INTEGER"), ("match_group", "INTEGER")):
+            if col not in cols:
+                self._db.execute(f"ALTER TABLE matches ADD COLUMN {col} {sql_type}")
+        end_keys = sorted(stats.PREJUDICE.match_end_keys)
+        self._db.execute(
+            "UPDATE matches SET ends_match = EXISTS(SELECT 1 FROM match_stats s WHERE s.match_id = matches.match_id "
+            f"AND s.key IN ({','.join('?' * len(end_keys))}) AND CAST(s.value AS INTEGER) > 0) "
+            "WHERE title = 'prejudice'",
+            end_keys,
+        )
+        last: dict = {}
+        rows = self._db.execute(
+            "SELECT match_id, received_at, host_profileid, title, game_mode, ends_match FROM matches ORDER BY match_id"
+        ).fetchall()
+        for match_id, received, host, title, mode, ends in rows:
+            prev = last.get((host, title)) if host else None
+            group = prev[3] if prev is not None and continues_match(prev, received, None, mode, ends) else match_id
+            self._db.execute("UPDATE matches SET match_group=? WHERE match_id=?", (group, match_id))
+            last[(host, title)] = (received, mode, ends, group)
+        self._db.commit()
 
     def get_meta(self, key: str):
         with self._lock:
@@ -411,17 +479,30 @@ class Store:
         player_count: int,
         title: str = "prejudice",
         game_modes: dict | None = None,
+        ends_match: bool = False,
+        session_started_at: str | None = None,
+        received_at: str | None = None,
     ):
-        """Returns the new match id, or None when the same report is already stored."""
+        """Returns the new row's id, or None when the same report is already stored. A row continues the match
+        of its host's previous report, or starts a new one; match_group names the match by its first row."""
         names = statdefs.GAME_MODES if game_modes is None else game_modes
+        received_at = received_at or _now()
         with self._lock:
+            prev = None
+            if host_profileid:
+                prev = self._db.execute(
+                    "SELECT received_at, game_mode, ends_match, COALESCE(match_group, match_id) FROM matches "
+                    "WHERE host_profileid=? AND title=? ORDER BY match_id DESC LIMIT 1",
+                    (host_profileid, title),
+                ).fetchone()
             try:
                 cur = self._db.execute(
                     "INSERT INTO matches(report_sha256, received_at, csid, host_profileid, game_mode, game_mode_name, "
-                    "report_version, report_status, player_count, title) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                    "report_version, report_status, player_count, title, session_started_at, ends_match) "
+                    "VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         report_sha256,
-                        datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+                        received_at,
                         csid,
                         host_profileid,
                         game_mode,
@@ -430,12 +511,25 @@ class Store:
                         report.status,
                         player_count,
                         title,
+                        session_started_at,
+                        int(bool(ends_match)),
                     ),
                 )
             except sqlite3.IntegrityError:
                 return None
+            match_id = cur.lastrowid
+            continued = continues_match(
+                prev[:3] if prev else None, received_at, session_started_at, game_mode, ends_match
+            )
+            group = prev[3] if prev is not None and continued else match_id
+            self._db.execute("UPDATE matches SET match_group=? WHERE match_id=?", (group, match_id))
             self._commit()
-        return cur.lastrowid
+        return match_id
+
+    def match_group(self, match_id: int):
+        with self._lock:
+            row = self._db.execute("SELECT match_group FROM matches WHERE match_id=?", (match_id,)).fetchone()
+        return row[0] if row else None
 
     def add_match_player(self, match_id: int, block, profileid, result=None) -> None:
         with self._lock:

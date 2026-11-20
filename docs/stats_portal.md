@@ -8,7 +8,7 @@ they never slow the game services. Only the account page changes data.
 |---|---|
 | `/` | Totals, the top 10 by XP, servers online |
 | `/leaderboard` | Every ranked player, sortable by XP, kills, K/D, time or matches |
-| `/players/<profileid>` | Level, career, records, time per mode, badges, feats, weapons, the last 25 matches |
+| `/players/<profileid>` | Level, career, records, time per mode, badges, feats, weapons, the last 25 matches ([one match spans several reports](architecture.md#matches)) |
 | `/players?q=<name>` | Search by display name, nick or profileid |
 | `/servers` | Dedicated servers; offline after 5 minutes without an update |
 | `/account` | Sign-in, and the display name and clan tag of each profile the account claimed |

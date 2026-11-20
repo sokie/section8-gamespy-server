@@ -168,6 +168,13 @@ class PortalData:
     def _has_title(conn) -> bool:
         return "title" in [c[1] for c in conn.execute("PRAGMA table_info(matches)")]
 
+    @staticmethod
+    def _match_of(conn) -> str:
+        """Gives the SQL expression that names the match a row of matches belongs to. A dedicated server sends
+        several reports per match; a database from before match_group holds one row per report."""
+        has_group = "match_group" in [c[1] for c in conn.execute("PRAGMA table_info(matches)")]
+        return "COALESCE(m.match_group, m.match_id)" if has_group else "m.match_id"
+
     def _profiles(self, conn) -> dict[int, tuple[str, str]]:
         """Gives {profileid: (display name, uniquenick)}."""
         shown = {}
@@ -216,9 +223,12 @@ class PortalData:
         cond, args = self._match_filter(conn)
         if pid is not None:
             cond, args = cond + " AND p.profileid=?", [*args, pid]
+        # A player counts a match when one of its reports has stats for them, so not when they only joined
+        # as it ended.
         sql = (
-            "SELECT p.profileid, COUNT(*) FROM match_players p JOIN matches m ON m.match_id=p.match_id "
-            f"WHERE p.profileid IS NOT NULL AND {cond} GROUP BY p.profileid"
+            f"SELECT p.profileid, COUNT(DISTINCT {self._match_of(conn)}) FROM match_players p "
+            "JOIN matches m ON m.match_id=p.match_id "
+            f"WHERE p.profileid IS NOT NULL AND p.xp_gained IS NOT NULL AND {cond} GROUP BY p.profileid"
         )
         return {r[0]: r[1] for r in conn.execute(sql, args)}
 
@@ -366,34 +376,53 @@ class PortalData:
         return out
 
     def _history(self, conn, pid: int, limit: int = 25) -> list[dict]:
+        """Gives the player's last matches, newest first. A match sums the reports it spans."""
         if not self._has_table(conn, "matches"):
             return []
         has_title = self._has_title(conn)
         if not has_title and self.game.key != "prejudice":
             return []
-        sql = (
-            "SELECT m.match_id, m.received_at, m.game_mode_name, m.player_count, p.xp_gained, p.level_after, m.csid "
-            "FROM match_players p JOIN matches m ON m.match_id=p.match_id WHERE p.profileid=?"
-        )
+        match_of = self._match_of(conn)
+        where = "FROM match_players p JOIN matches m ON m.match_id=p.match_id WHERE p.profileid=? AND p.xp_gained IS NOT NULL"
         args: list = [pid]
         if has_title:
-            sql += " AND m.title=?"
+            where += " AND m.title=?"
             args.append(self.game.key)
-        rows = conn.execute(sql + " ORDER BY m.match_id DESC LIMIT ?", (*args, limit)).fetchall()
-        return [
-            {
-                "match_id": r["match_id"],
-                "date": r["received_at"],
-                "mode": "XP carried over from an older database"
-                if r["csid"] == CARRIED_OVER
-                else (r["game_mode_name"] or self._only_mode),
-                "carried_over": r["csid"] == CARRIED_OVER,
-                "players": r["player_count"],
-                "xp_gained": r["xp_gained"],
-                "level_after": r["level_after"],
-            }
-            for r in rows
+        latest = [
+            r[0]
+            for r in conn.execute(
+                f"SELECT {match_of} AS g, MAX(m.match_id) AS last {where} GROUP BY g ORDER BY last DESC LIMIT ?",
+                (*args, limit),
+            )
         ]
+        if not latest:
+            return []
+        rows = conn.execute(
+            f"SELECT {match_of} AS g, m.received_at, m.game_mode_name, m.player_count, p.xp_gained, p.level_after, "
+            f"m.csid {where} AND {match_of} IN ({','.join('?' * len(latest))}) ORDER BY m.match_id",
+            (*args, *latest),
+        ).fetchall()
+        matches: dict[int, dict] = {}
+        for r in rows:
+            m = matches.setdefault(
+                r["g"],
+                {"match_id": r["g"], "mode": None, "carried_over": False, "players": 0, "xp_gained": 0, "reports": 0},
+            )
+            m["date"] = r["received_at"]
+            m["mode"] = m["mode"] or r["game_mode_name"]
+            m["carried_over"] = m["carried_over"] or r["csid"] == CARRIED_OVER
+            m["players"] = max(m["players"], r["player_count"] or 0)
+            m["xp_gained"] += r["xp_gained"] or 0
+            m["level_after"] = r["level_after"]
+            m["reports"] += 1
+        out = []
+        for g in latest:
+            m = matches[g]
+            if m["carried_over"]:
+                m["mode"] = "XP carried over from an older database"
+            m["mode"] = m["mode"] or self._only_mode
+            out.append(m)
+        return out
 
     def servers(self) -> list[dict]:
         return self._cached("servers", self._read_servers)
@@ -442,7 +471,9 @@ class PortalData:
             total_matches = 0
             if self._has_table(conn, "matches"):
                 cond, args = self._match_filter(conn)
-                total_matches = conn.execute(f"SELECT COUNT(*) FROM matches m WHERE {cond}", args).fetchone()[0]
+                total_matches = conn.execute(
+                    f"SELECT COUNT(DISTINCT {self._match_of(conn)}) FROM matches m WHERE {cond}", args
+                ).fetchone()[0]
         return {
             "game": self.game.key,
             "players": len(players),

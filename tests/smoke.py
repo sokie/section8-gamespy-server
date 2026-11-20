@@ -1,5 +1,6 @@
 import os
 import sqlite3
+import struct
 import sys
 import tempfile
 import xml.etree.ElementTree as ET
@@ -277,6 +278,120 @@ check(
     lone.record_id_for_owner("PlayerStats_v6", 10000001) is not None
     and lone.record_id_for_owner("PlayerStats_v6", 10000003) is None,
 )
+
+print("matches across reports:")
+END_KEYS = {stats.BY_COLUMN[f"Ranked_Badge_B{n}"].key for n in (8, 9, 12, 15)}
+check("the end-of-match badges are known", stats.PREJUDICE.match_end_keys == END_KEYS)
+
+
+def build_report(blocks, salt):
+    """A report holding one block of int32 keys per (profileid, {key: value})."""
+    roster = b"".join(bytes.fromhex(f"{pid:08X}BEEFCAFE") + bytes(8) + struct.pack(">I", 0) for pid, _ in blocks)
+    auth = bytes(16 * len(blocks))
+    results = struct.pack(f">{len(blocks)}I", *([5] * len(blocks)))
+    body = b"".join(
+        struct.pack(">H", len(keys)) + b"".join(struct.pack(">HHi", k, screport.KEY_INT32, v) for k, v in keys.items())
+        for _, keys in blocks
+    )
+    head = struct.pack(">II", 2, 6) + struct.pack(">I", salt) + bytes(12) + struct.pack(">II", 0, 1)
+    head += struct.pack(">6H", len(blocks), 0, 0, 0, 0, 0)
+    head += struct.pack(">6I", len(roster), len(auth), len(results), 0, len(body), 0)
+    return head + roster + auth + results + body
+
+
+def chunk(salt, xp, end=False):
+    """A Conquest report: player 10000001 with kills and XP, player 10000002 with a little XP."""
+    keys = {1: 2, 10: 300, 11: xp, 1427: 300}
+    if end:
+        keys[stats.BY_COLUMN["Ranked_Badge_B8"].key] = 1
+    return build_report([(10000001, keys), (10000002, {10: 60, 11: 1, 1427: 60})], salt)
+
+
+def at(hms):
+    return f"2026-11-20T{hms}Z"
+
+
+check(
+    "only a report with an end-of-match badge ends its match",
+    stats.PREJUDICE.ends_match([p.keys for p in screport.parse(chunk(0, 1, end=True)).players])
+    and not stats.PREJUDICE.ends_match([p.keys for p in screport.parse(chunk(0, 1)).players]),
+)
+gs = Store(fresh_db("s8_groups.db"))
+for nick in ("Host", "Friend"):
+    gs.get_or_create_profile(nick)
+gc = CompetitionService(gs, report_dir=tempfile.gettempdir())
+# Session starts known, as the server sees them: a 20 second gap inside a match, about 50 between matches.
+live = [
+    (1, 10, False, "20:00:00", "20:05:30"),
+    (2, 20, False, "20:05:50", "20:11:00"),
+    (3, 30, True, "20:11:20", "20:20:00"),  # the last report, 8.7 minutes long
+    (4, 40, False, "20:20:50", "20:26:20"),  # the next match, abandoned: it never sends a last report
+    (5, 50, False, "20:30:00", "20:35:30"),  # so a session opened minutes later starts a new one
+]
+for salt, xp, end, started, received in live:
+    gc.ingest_report(chunk(salt, xp, end), f"c{salt}", 10000099, session_started=at(started), received_at=at(received))
+# Rows with no session start: an older database, or a session opened before a restart.
+stored = [
+    (6, 60, False, "21:00:00"),
+    (7, 70, False, "21:05:30"),  # 330 seconds later: an interim report
+    (8, 80, True, "21:14:30"),  # the last report of the match
+    (9, 90, False, "21:20:50"),  # 380 seconds later: the next match
+    (10, 100, False, "21:30:00"),  # 550 seconds, and no end badges: another match
+]
+for salt, xp, end, received in stored:
+    gc.ingest_report(chunk(salt, xp, end), f"c{salt}", 10000098, received_at=at(received))
+gc.ingest_report(chunk(11, 110), "c11", 0, received_at=at("21:35:30"))  # no host: a match of its own
+
+
+def groups(db):
+    rows = sqlite3.connect(db).execute("SELECT csid, match_group FROM matches ORDER BY match_id").fetchall()
+    first: dict = {}
+    return [first.setdefault(g, csid) for csid, g in rows]
+
+
+expected = ["c1", "c1", "c1", "c4", "c5", "c6", "c6", "c6", "c9", "c10", "c11"]
+gs_path = os.path.join(tempfile.gettempdir(), "s8_groups.db")
+check("reports group into the matches they came from", groups(gs_path) == expected)
+gcareer = {
+    n: v
+    for n, (_t, v) in gs.get_fields(
+        "PlayerStats_v6", 10000001, gs.record_id_for_owner("PlayerStats_v6", 10000001)
+    ).items()
+}
+check(
+    "every report still folds into the career",
+    (gcareer.get("Ranked_xp"), gcareer.get("Ranked_Kills"), gcareer.get("Ranked_Badge_B8")) == ("660", "22", "2"),
+)
+
+from server.portal import games_for  # noqa: E402
+from server.portal_data import PortalData  # noqa: E402
+from server.titles import Titles  # noqa: E402
+
+gdata = PortalData(gs_path, None, games_for(Titles())[0])
+check(
+    "the portal counts matches, not reports",
+    {p["profileid"]: p["matches"] for p in gdata.players()} == {10000001: 7, 10000002: 7},
+)
+check("and in total", gdata.summary()["matches"] == 7)
+ghist = gdata.player(10000001)["history"]
+check(
+    "the history shows a match once, its XP summed",
+    [(h["reports"], h["xp_gained"]) for h in ghist]
+    == [(1, 110), (1, 100), (1, 90), (3, 210), (1, 50), (1, 40), (3, 60)],
+)
+
+old_db = os.path.join(tempfile.gettempdir(), "s8_groups_old.db")
+for suffix in ("", "-wal", "-shm"):
+    if os.path.exists(old_db + suffix):
+        os.remove(old_db + suffix)
+backup = sqlite3.connect(old_db)
+sqlite3.connect(gs_path).backup(backup)
+for col in ("match_group", "ends_match", "session_started_at"):
+    backup.execute(f"ALTER TABLE matches DROP COLUMN {col}")
+backup.commit()
+backup.close()
+Store(old_db)
+check("an older database regroups its reports on start", groups(old_db) == expected)
 
 print("sake reads of the career:")
 sk = SakeService(st)

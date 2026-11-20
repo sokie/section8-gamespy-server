@@ -82,6 +82,7 @@ class Catalog:
         level_column="Ranked_Level",
         player_table=None,
         name="",
+        match_end_badges=(),
     ):
         self.name = name
         self.by_key = {row[0]: StatDef(*row) for row in rows}
@@ -96,6 +97,10 @@ class Catalog:
         self.xp_column = xp_column
         self.level_column = level_column
         self.player_table = player_table
+        ends = set(match_end_badges or ())
+        self.match_end_keys = frozenset(
+            s.key for s in self.by_key.values() if s.family == "badge" and s.fold == "sum" and s.item in ends
+        )
 
     @classmethod
     def empty(cls, name=""):
@@ -137,6 +142,7 @@ class Catalog:
             data.get("level_column", "Ranked_Level"),
             data.get("player_table"),
             data.get("title", ""),
+            data.get("match_end_badges", ()),
         )
 
     @property
@@ -262,6 +268,11 @@ class Catalog:
             out.level = _int(current(self.level_column))
         return out
 
+    def ends_match(self, players_keys) -> bool:
+        """Tells whether a report is the last of its match: only that one carries the badges the game awards
+        when a match ends."""
+        return any(self.match_end_keys.intersection(keys) for keys in players_keys)
+
     def game_mode_of(self, players_keys) -> int | None:
         best, mode = 0, None
         for keys in players_keys:
@@ -272,6 +283,10 @@ class Catalog:
         return mode
 
 
+# A dedicated server reports every 5.5 minutes during a match. These badges, Enduring Service, Distinguished
+# Service, Honorable Service and Battlefield Victory, come only in the report that ends it.
+MATCH_END_BADGES = (8, 9, 12, 15)
+
 PREJUDICE = Catalog(
     statdefs.STATS,
     statdefs.LEVEL_XP,
@@ -281,6 +296,7 @@ PREJUDICE = Catalog(
     statdefs.FEATS,
     statdefs.GEAR,
     name="prejudice",
+    match_end_badges=MATCH_END_BADGES,
 )
 
 BY_KEY = PREJUDICE.by_key

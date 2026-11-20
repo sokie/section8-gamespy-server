@@ -2,7 +2,7 @@ import gzip
 import hashlib
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 
 from . import log, screport, stats
 from .titles import Titles
@@ -11,6 +11,7 @@ COMP_NS = "http://gamespy.net/competition/"
 BIN_MARKER = b"application/bin\x00"
 PLAYER_STATS = "PlayerStats_v6"
 CCID_MARKER = bytes.fromhex("BEEFCAFE")
+MAX_SESSIONS = 4096
 
 
 def minted_profileid(block):
@@ -48,6 +49,8 @@ class CompetitionService:
         self._report_dir = report_dir
         self._csid = 1000
         self._titles = titles or Titles(store=store)
+        # When each session opened. It tells whether the session continues its host's match.
+        self._session_started: dict[str, str] = {}
 
     def _title_of(self, raw: bytes, csid: str = ""):
         # CheckProfileOnBanList spells it <gsc:GameId>; the other calls use <gsc:gameid>.
@@ -120,6 +123,9 @@ class CompetitionService:
         host_pid = int(self._profile_id(raw) or 0)
         title = self._title_of(raw)
         self._titles.remember_session(str(self._csid), title)
+        if len(self._session_started) >= MAX_SESSIONS:
+            self._session_started.pop(next(iter(self._session_started)))
+        self._session_started[str(self._csid)] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
         log.log(f"    [comp] CreateSession csid={self._csid} host_pid={host_pid} title={title.key}")
         return self._result("CreateSession", f"<csid>{self._csid}</csid><ccid>{self._mint_ccid(host_pid)}</ccid>")
 
@@ -152,12 +158,14 @@ class CompetitionService:
             f"gameid={gameid} blob={len(report)}B ***"
         )
         self._save_report(gameid, csid, owner, report, raw)
-        self.ingest_report(report, csid, owner, self._title_of(raw, csid))
+        self.ingest_report(report, csid, owner, self._title_of(raw, csid), self._session_started.get(csid))
         return self._result("SubmitReport")
 
-    def ingest_report(self, blob: bytes, csid: str = "", host: int = 0, title=None) -> None:
+    def ingest_report(
+        self, blob: bytes, csid: str = "", host: int = 0, title=None, session_started=None, received_at=None
+    ) -> None:
         """Stores a report as match history and folds each player onto their career. A resent report
-        changes nothing."""
+        changes nothing. A dedicated server reports every 5.5 minutes, so one match can span several reports."""
         if not blob or self._store is None:
             return
         title = title or self._titles.title_for_session(csid) or self._titles.legacy
@@ -172,10 +180,11 @@ class CompetitionService:
             log.log("    [comp] report carried no stat blocks (close/empty report)")
             return
         mode = catalog.game_mode_of([p.keys for p in report.players])
+        ends = catalog.ends_match([p.keys for p in report.players])
         log.log(
             f"    [comp] report v{report.version} status={report.status} players={len(report.players)} "
             f"mode={catalog.game_modes.get(mode) if mode is not None else None} title={title.key} "
-            f"table={player_stats}"
+            f"table={player_stats} ends_match={ends}"
         )
         if not catalog.by_key:
             log.log(
@@ -192,10 +201,19 @@ class CompetitionService:
                 len(report.players),
                 title.key,
                 catalog.game_modes,
+                ends,
+                session_started,
+                received_at,
             )
             if match_id is None:
                 log.log("    [comp] this report was already applied; skipped (resend)")
                 return
+            group = self._store.match_group(match_id)
+            log.log(
+                f"    [comp] report {match_id} "
+                + ("starts a match" if group == match_id else f"continues match {group}")
+                + (", and ends it" if ends else "")
+            )
             for block in report.players:
                 profileid = minted_profileid(block)
                 if not profileid or not block.keys:

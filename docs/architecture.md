@@ -49,7 +49,9 @@ same layout, and XLLN redirects TCP only.
 3. **Read stats.** Sake reads `PlayerStats_v6`, `PlayerProfile2_v6`, `S8Level_v6` and `NewsStats_v6`. A
    new player gets zeroed rows. Login needs these answers.
 4. **Ranked match.** The host calls `CheckProfileOnBanList`, `CreateSession`, `SetReportIntention` and
-   `SubmitReport` on 8904. The report is decoded and each player is folded onto their career.
+   `SubmitReport` on 8904. The report is decoded and each player is folded onto their career. The
+   players call `SetReportIntention` too, but only the host submits. A dedicated server repeats this
+   every 5.5 minutes of a match, see [Matches](#matches).
 5. **Read back.** The next login reads the new totals.
 
 ## Storage
@@ -65,7 +67,7 @@ same layout, and XLLN redirects TCP only.
 
 | Table or view | Holds |
 |---|---|
-| `matches` | one row per report, unique on its SHA-256, so a resent report counts once |
+| `matches` | one row per report, unique on its SHA-256, so a resent report counts once. `match_group` names the match it belongs to |
 | `match_players`, `match_stats` | each player's slot, XP and level, and every value the report sent |
 | `stat_defs`, `award_defs` | the name of every column, badge and feat |
 | `player_career`, `player_awards` (views) | careers and awards by name |
@@ -132,6 +134,25 @@ out: the first dword is the profileid, bytes 4–7 are `BEEFCAFE`. A roster slot
   `Ranked_Feats1/2/3_F<n>` count the x1, x2 and x3 tiers.
 - Gear stats are per gear id, and each weapon mod has its own id (46 of 60 slots used). Time counts for
   the primary weapon and the gear in hand, so gear times add up to more than the match.
+
+### Matches
+
+A dedicated server closes its ATLAS session and reports every 330 seconds during a match, and once more
+when the match ends. Each report holds only its own slice, so the career sums them. The `SubmitReport`
+call and the report header are the same for both kinds: status 0, flags 1, no game or team keys.
+
+The server groups reports into matches by:
+
+- **End-of-match badges.** Only the last report carries Enduring Service, Distinguished Service,
+  Honorable Service and Battlefield Victory (badges 8, 9, 12 and 15). The next report starts a match.
+- **Session gap.** The host opens its next session 20 seconds after an interim report, and about 50
+  seconds after the last one (scoreboard and map load). A gap over 35 seconds starts a match, which also
+  ends a match that was abandoned before its last report.
+- **Rows from before the session start was kept.** These count as the same match when a report came 330
+  seconds (±15) after the previous one, or carries the end badges within 15 minutes of it.
+
+The portal counts a match for a player when one of its reports has stats for them, and its history sums
+a match's reports.
 
 ### Sake reads
 
